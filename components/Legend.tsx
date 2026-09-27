@@ -23,6 +23,10 @@ export default function Legend() {
             </li>
           );
         })}
+        <li className="flex items-center gap-2">
+          <span className="inline-block h-3 w-4 rounded-sm border-2 border-dashed border-red-900" />
+          <span className="text-slate-700">⏰ Срок устранения просрочен</span>
+        </li>
       </ul>
       <div className="mb-1.5 mt-3 font-semibold text-slate-700">Сигналы жителей</div>
       <ul className="space-y-1">

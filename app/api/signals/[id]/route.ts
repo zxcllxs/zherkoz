@@ -5,6 +5,7 @@ import { jsonError, serverError } from "@/lib/http";
 import { canSignalTransition, SIGNAL_STATUS_STYLE } from "@/lib/status";
 import { applyTransition } from "@/lib/parcels";
 import { toPublicSignal } from "@/lib/signals";
+import { notifySignalStatus } from "@/lib/notify";
 import type { Parcel, Signal, SignalStatus } from "@/lib/types";
 
 export const runtime = "nodejs";
@@ -90,6 +91,10 @@ export async function PATCH(req: Request, ctx: RouteContext<"/api/signals/[id]">
         await saveParcel(parcel);
       }
     }
+
+    // Для текста «срок устранения до …» нужен актуальный участок.
+    const linked = parcel ?? (signal.parcelId ? await getParcel(signal.parcelId).catch(() => null) : null);
+    await notifySignalStatus(updated, linked);
 
     return NextResponse.json({ signal: toPublicSignal(updated), parcel });
   } catch (e) {

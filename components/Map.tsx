@@ -7,7 +7,7 @@ import { useEffect, useState } from "react";
 import { CircleMarker, MapContainer, Pane, Polygon, TileLayer, Tooltip, useMap } from "react-leaflet";
 import type { PathOptions } from "leaflet";
 import { parcelsBounds, polygonToLeaflet, signalToLeaflet, type LatLngTuple } from "@/lib/geo";
-import { PARCEL_STATUS_STYLE, SIGNAL_STATUS_STYLE } from "@/lib/status";
+import { PARCEL_STATUS_STYLE, SIGNAL_STATUS_STYLE, isOverdue } from "@/lib/status";
 import type { Parcel, PublicSignal } from "@/lib/types";
 import Legend from "./Legend";
 
@@ -23,6 +23,7 @@ export interface MapProps {
   selectedParcelId: string | null;
   selectedSignalId: string | null;
   focus: MapFocus | null;
+  now: number;
   onSelectParcel: (id: string) => void;
   onSelectSignal: (id: string) => void;
 }
@@ -47,19 +48,20 @@ function FlyTo({ focus }: { focus: MapFocus | null }) {
   return null;
 }
 
-function parcelStyle(p: Parcel, hovered: boolean, selected: boolean): PathOptions {
+function parcelStyle(p: Parcel, hovered: boolean, selected: boolean, overdue: boolean): PathOptions {
   const st = PARCEL_STATUS_STYLE[p.status];
   return {
-    color: selected ? "#1e3a8a" : st.color,
-    weight: selected ? 4 : hovered ? 3 : 2,
+    color: selected ? "#1e3a8a" : overdue ? "#7f1d1d" : st.color,
+    weight: selected ? 4 : hovered || overdue ? 3 : 2,
     fillColor: st.color,
     fillOpacity: hovered || selected ? 0.65 : 0.45,
-    dashArray: st.dashArray,
+    // Просрочка — пунктир (важнее штрих-пунктира «устраняется»)
+    dashArray: overdue ? "5 5" : st.dashArray,
   };
 }
 
 export default function ParcelMap(props: MapProps) {
-  const { parcels, signals, selectedParcelId, selectedSignalId, focus, onSelectParcel, onSelectSignal } = props;
+  const { parcels, signals, selectedParcelId, selectedSignalId, focus, now, onSelectParcel, onSelectSignal } = props;
   const [hovered, setHovered] = useState<string | null>(null);
 
   return (
@@ -76,7 +78,7 @@ export default function ParcelMap(props: MapProps) {
           <Polygon
             key={p.id}
             positions={polygonToLeaflet(p.geometry)}
-            pathOptions={parcelStyle(p, hovered === p.id, selectedParcelId === p.id)}
+            pathOptions={parcelStyle(p, hovered === p.id, selectedParcelId === p.id, isOverdue(p, now))}
             eventHandlers={{
               mouseover: () => setHovered(p.id),
               mouseout: () => setHovered((h) => (h === p.id ? null : h)),
@@ -85,6 +87,7 @@ export default function ParcelMap(props: MapProps) {
           >
             <Tooltip sticky>
               {p.cadastralNumber} · {PARCEL_STATUS_STYLE[p.status].label}
+              {isOverdue(p, now) && " · ⏰ срок просрочен"}
             </Tooltip>
           </Polygon>
         ))}
