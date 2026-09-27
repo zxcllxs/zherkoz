@@ -9,6 +9,7 @@ const DAY_MS = 24 * 60 * 60 * 1000;
 const SOON_DAYS = 3;
 const HIGH_PRIORITY = 3;
 const MAX_WAYPOINTS = 9;
+const TWO_OPT_MAX_ITER = 200;
 const MAX_URL = 2048;
 
 export interface LatLng {
@@ -21,6 +22,7 @@ export interface Stop extends LatLng {
   id: string;
   title: string;
   priority: number;
+  urgent: boolean; // приоритет ≥ 3
   reasons: string[];
 }
 
@@ -29,12 +31,25 @@ export interface PlannedStop extends Stop {
   legKm: number; // от предыдущей точки
 }
 
-export interface RoutePlan {
-  start: LatLng;
-  startLabel: string;
+export interface RouteVariant {
   stops: PlannedStop[];
   totalKm: number;
   links: string[];
+}
+
+/** Оба варианта считаются сразу: единый маршрут и «сначала срочные» — чтобы сравнить длину. */
+export interface RoutePlan {
+  start: LatLng;
+  startLabel: string;
+  mixed: RouteVariant;
+  urgentFirst: RouteVariant;
+}
+
+/** Что рисовать на карте: старт и точки выбранного варианта. */
+export interface RouteView {
+  start: LatLng;
+  startLabel: string;
+  stops: PlannedStop[];
 }
 
 function isDeadlineSoon(p: Parcel, now: number): boolean {
@@ -100,6 +115,7 @@ export function collectStops(parcels: Parcel[], signals: PublicSignal[], now: nu
       lat: s.lat,
       lng: s.lng,
       priority,
+      urgent: priority >= HIGH_PRIORITY,
       reasons,
     });
   }
@@ -120,36 +136,86 @@ export function collectStops(parcels: Parcel[], signals: PublicSignal[], now: nu
       lat,
       lng,
       priority,
+      urgent: priority >= HIGH_PRIORITY,
       reasons: reasonStatus ? [reasonStatus, ...reasons] : reasons,
     });
   }
   return stops;
 }
 
-/** Жадный ближайший сосед: сначала точки с приоритетом ≥3, затем остальные; при равном расстоянии — выше приоритет. */
-export function orderStops(start: LatLng, stops: Stop[]): PlannedStop[] {
-  const tiers = [stops.filter((s) => s.priority >= HIGH_PRIORITY), stops.filter((s) => s.priority < HIGH_PRIORITY)];
-  const result: PlannedStop[] = [];
-  let cur = start;
-  for (const tier of tiers) {
-    const left = [...tier];
-    while (left.length) {
-      let bi = 0;
-      let bd = Infinity;
-      left.forEach((s, i) => {
-        const d = haversineKm(cur, s);
-        if (d < bd - 1e-9 || (Math.abs(d - bd) <= 1e-9 && s.priority > left[bi].priority)) {
-          bd = d;
-          bi = i;
-        }
-      });
-      const [next] = left.splice(bi, 1);
-      result.push({ ...next, n: result.length + 1, legKm: bd });
-      cur = next;
-    }
+/** Ближайший сосед от from; при равном расстоянии — выше приоритет. */
+function nearestNeighbor(from: LatLng, stops: Stop[]): Stop[] {
+  const left = [...stops];
+  const out: Stop[] = [];
+  let cur = from;
+  while (left.length) {
+    let bi = 0;
+    let bd = Infinity;
+    left.forEach((s, i) => {
+      const d = haversineKm(cur, s);
+      if (d < bd - 1e-9 || (Math.abs(d - bd) <= 1e-9 && s.priority > left[bi].priority)) {
+        bd = d;
+        bi = i;
+      }
+    });
+    const [next] = left.splice(bi, 1);
+    out.push(next);
+    cur = next;
   }
-  return result;
+  return out;
 }
+
+/**
+ * 2-opt для открытого пути с фиксированным началом (конец свободный):
+ * разворот отрезка [i..k], если он укорачивает путь. Итерация — одно принятое улучшение, максимум 200.
+ */
+export function twoOpt(from: LatLng, route: Stop[], maxIter: number = TWO_OPT_MAX_ITER): Stop[] {
+  const r = [...route];
+  const n = r.length;
+  if (n < 3) return r;
+  const d = haversineKm;
+  for (let iter = 0; iter < maxIter; iter++) {
+    let improved = false;
+    for (let i = 0; i < n - 1 && !improved; i++) {
+      const prev = i === 0 ? from : r[i - 1];
+      for (let k = i + 1; k < n; k++) {
+        const next = k === n - 1 ? null : r[k + 1];
+        const before = d(prev, r[i]) + (next ? d(r[k], next) : 0);
+        const after = d(prev, r[k]) + (next ? d(r[i], next) : 0);
+        if (after < before - 1e-9) {
+          const seg = r.slice(i, k + 1).reverse();
+          r.splice(i, k - i + 1, ...seg);
+          improved = true;
+          break;
+        }
+      }
+    }
+    if (!improved) break;
+  }
+  return r;
+}
+
+function toPlanned(from: LatLng, route: Stop[]): PlannedStop[] {
+  let cur = from;
+  return route.map((s, i) => {
+    const legKm = haversineKm(cur, s);
+    cur = s;
+    return { ...s, n: i + 1, legKm };
+  });
+}
+
+/**
+ * Порядок обхода. По умолчанию — единый маршрут по всем точкам (ближайший сосед + 2-opt).
+ * urgentFirst: сначала точки с приоритетом ≥3, затем остальные; внутри каждого уровня — тоже 2-opt.
+ */
+export function orderStops(start: LatLng, stops: Stop[], urgentFirst = false): PlannedStop[] {
+  if (!urgentFirst) return toPlanned(start, twoOpt(start, nearestNeighbor(start, stops)));
+  const urgent = twoOpt(start, nearestNeighbor(start, stops.filter((s) => s.urgent)));
+  const tail = urgent.length ? urgent[urgent.length - 1] : start;
+  const rest = twoOpt(tail, nearestNeighbor(tail, stops.filter((s) => !s.urgent)));
+  return toPlanned(start, [...urgent, ...rest]);
+}
+
 
 const fmt = (p: LatLng) => `${p.lat.toFixed(6)},${p.lng.toFixed(6)}`;
 
@@ -182,6 +248,15 @@ export function googleMapsLinks(start: LatLng, stops: LatLng[]): string[] {
   return links;
 }
 
+function variant(start: LatLng, stops: Stop[], urgentFirst: boolean): RouteVariant {
+  const ordered = orderStops(start, stops, urgentFirst);
+  return {
+    stops: ordered,
+    totalKm: ordered.reduce((sum, s) => sum + s.legKm, 0),
+    links: googleMapsLinks(start, ordered),
+  };
+}
+
 export function buildRoutePlan(
   parcels: Parcel[],
   signals: PublicSignal[],
@@ -189,12 +264,6 @@ export function buildRoutePlan(
   start: LatLng,
   startLabel: string,
 ): RoutePlan {
-  const stops = orderStops(start, collectStops(parcels, signals, now));
-  return {
-    start,
-    startLabel,
-    stops,
-    totalKm: stops.reduce((sum, s) => sum + s.legKm, 0),
-    links: googleMapsLinks(start, stops),
-  };
+  const stops = collectStops(parcels, signals, now);
+  return { start, startLabel, mixed: variant(start, stops, false), urgentFirst: variant(start, stops, true) };
 }

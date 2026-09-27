@@ -13,7 +13,7 @@ import type { Parcel, PublicSignal } from "@/lib/types";
 import Legend from "./Legend";
 import BasemapSwitch, { type Basemap } from "./BasemapSwitch";
 import { S2_LATEST_YEAR, S2_MAX_NATIVE_ZOOM, s2AttributionHtml, s2TileUrl } from "@/lib/satellite";
-import type { RoutePlan } from "@/lib/route-plan";
+import type { RouteView } from "@/lib/route-plan";
 
 const BASEMAP_KEY = "zherkoz:basemap";
 const OSM_ATTRIBUTION = '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors';
@@ -34,7 +34,7 @@ export interface MapProps {
   selectedSignalId: string | null;
   focus: MapFocus | null;
   now: number;
-  route: RoutePlan | null;
+  route: RouteView | null;
   onSelectParcel: (id: string) => void;
   onSelectSignal: (id: string) => void;
 }
@@ -64,7 +64,7 @@ function SizeWatcher() {
 }
 
 /** Новый план выезда — показать весь маршрут. */
-function FitRoute({ route }: { route: RoutePlan | null }) {
+function FitRoute({ route }: { route: RouteView | null }) {
   const map = useMap();
   useEffect(() => {
     if (!route || route.stops.length === 0) return;
@@ -242,12 +242,13 @@ export default function ParcelMap(props: MapProps) {
               <Marker
                 key={`${s.kind}-${s.id}`}
                 position={[s.lat, s.lng]}
-                icon={routeIcon(String(s.n), s.priority >= 3 ? "#dc2626" : "#1d4ed8")}
+                icon={routeIcon(String(s.n), s.urgent ? "#dc2626" : "#1d4ed8")}
                 pane="route"
                 eventHandlers={{ click: () => (s.kind === "signal" ? onSelectSignal(s.id) : onSelectParcel(s.id)) }}
               >
                 <Tooltip>
                   {s.n}. {s.title} · приоритет {s.priority}
+                  {s.urgent && " · срочно"}
                 </Tooltip>
               </Marker>
             ))}

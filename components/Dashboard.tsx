@@ -60,6 +60,12 @@ function DashboardInner() {
   const sidebarScroll = useRef<HTMLDivElement>(null);
   const [plan, setPlan] = useState<RoutePlan | null>(null);
   const [planning, setPlanning] = useState(false);
+  const [urgentFirst, setUrgentFirst] = useState(false);
+  const routeView = useMemo(
+    () =>
+      plan ? { start: plan.start, startLabel: plan.startLabel, stops: (urgentFirst ? plan.urgentFirst : plan.mixed).stops } : null,
+    [plan, urgentFirst],
+  );
 
   const parcels = useMemo(() => state?.parcels ?? [], [state]);
   const signals = useMemo(() => state?.signals ?? [], [state]);
@@ -186,7 +192,7 @@ function DashboardInner() {
     setHeaderOpen(false);
     setSelectedParcelId(null);
     setSelectedSignalId(null);
-    if (p.stops.length === 0) toast("Сейчас нет точек для выезда", "info");
+    if (p.mixed.stops.length === 0) toast("Сейчас нет точек для выезда", "info");
   };
 
   const onSelectStop = (st: PlannedStop) => {
@@ -352,6 +358,8 @@ function DashboardInner() {
             ) : tab === "plan" && plan ? (
               <RoutePlanPanel
                 plan={plan}
+                urgentFirst={urgentFirst}
+                onToggleUrgentFirst={setUrgentFirst}
                 onSelectStop={onSelectStop}
                 onReset={() => {
                   setPlan(null);
@@ -404,7 +412,7 @@ function DashboardInner() {
             selectedSignalId={selectedSignalId}
             focus={focus}
             now={now}
-            route={plan}
+            route={routeView}
             onSelectParcel={(id) => selectParcel(id)}
             onSelectSignal={(id) => selectSignal(id)}
           />
