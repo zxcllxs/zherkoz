@@ -57,7 +57,7 @@ const ru = {
   kbTiming: "Сроки",
   kbWhere: "Куда обращаться",
   kbWhereButtons: "ссылки — кнопками ниже",
-  kbChecked: "Сведения проверены:",
+  kbNotes: "Важно",
   kbRuOnly: "",
 
   // Народный контроль
@@ -138,7 +138,7 @@ const kk: Texts = {
   kbTiming: "Мерзімдер",
   kbWhere: "Қайда жүгіну керек",
   kbWhereButtons: "сілтемелер — төмендегі батырмаларда",
-  kbChecked: "Мәліметтер тексерілген күн:",
+  kbNotes: "Маңызды",
   kbRuOnly: "ℹ️ Бұл бөлімнің мазмұны әзірге тек орыс тілінде.",
 
   repStep1:

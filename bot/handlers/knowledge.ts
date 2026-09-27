@@ -1,4 +1,4 @@
-import { KNOWLEDGE, KNOWLEDGE_STUB_TEXT, isFilled, type KnowledgeEntry } from "@/content/knowledge";
+import { KNOWLEDGE, KNOWLEDGE_STUB_TEXT, isFilled, knowledgeFooter, type KnowledgeEntry } from "@/content/knowledge";
 import { tx, type BotContext } from "../context";
 import { knowledgeEntryKeyboard, knowledgeListKeyboard } from "../keyboards";
 import { escapeHtml, type Texts } from "../texts";
@@ -16,8 +16,11 @@ function formatEntry(t: Texts, e: KnowledgeEntry): string {
       out.push("", `<b>${t.kbDocs}</b>`, ...e.documents.map((d) => `• ${escapeHtml(d)}`));
     }
     if (e.timing.trim()) out.push("", `<b>${t.kbTiming}</b>`, escapeHtml(e.timing));
+    if (e.notes.length) {
+      out.push("", `<b>${t.kbNotes}</b>`, ...e.notes.map((n) => `• ${escapeHtml(n)}`));
+    }
     if (e.links.length) out.push("", `<b>${t.kbWhere}</b>: ${t.kbWhereButtons}`);
-    if (e.checkedAt) out.push("", `<i>${t.kbChecked} ${escapeHtml(e.checkedAt)}</i>`);
+    if (e.checkedAt) out.push("", `<i>${escapeHtml(knowledgeFooter(e.checkedAt))}</i>`);
   }
   if (t.kbRuOnly) out.push("", `<i>${t.kbRuOnly}</i>`);
   return out.join("\n");
