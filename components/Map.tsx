@@ -3,13 +3,19 @@
 import "leaflet/dist/leaflet.css";
 import "leaflet-defaulticon-compatibility/dist/leaflet-defaulticon-compatibility.css";
 import "leaflet-defaulticon-compatibility";
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { CircleMarker, MapContainer, Pane, Polygon, TileLayer, Tooltip, useMap, useMapEvents } from "react-leaflet";
 import type { PathOptions } from "leaflet";
 import { dataBounds, parcelCenter, polygonToLeaflet, signalToLeaflet, type LatLngTuple } from "@/lib/geo";
 import { PARCEL_STATUS_STYLE, SIGNAL_STATUS_STYLE, isOverdue } from "@/lib/status";
 import type { Parcel, PublicSignal } from "@/lib/types";
 import Legend from "./Legend";
+import BasemapSwitch, { type Basemap } from "./BasemapSwitch";
+import { useToast } from "./Toasts";
+import type { SatelliteLayer } from "@/lib/wmts";
+
+const BASEMAP_KEY = "zherkoz:basemap";
+const OSM_ATTRIBUTION = '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors';
 
 /** Ниже этого зума полигоны слишком мелкие — дублируем участки маркерами в центроиде. */
 const MARKER_MAX_ZOOM = 15;
@@ -74,16 +80,62 @@ export default function ParcelMap(props: MapProps) {
   const { parcels, signals, selectedParcelId, selectedSignalId, focus, now, onSelectParcel, onSelectSignal } = props;
   const [hovered, setHovered] = useState<string | null>(null);
   const [zoom, setZoom] = useState(13);
+  const toast = useToast();
+  const [basemap, setBasemap] = useState<Basemap>("osm");
+  const [sat, setSat] = useState<SatelliteLayer | null>(null);
+  const [satLoading, setSatLoading] = useState(false);
+
+  const chooseBasemap = useCallback(
+    async (b: Basemap) => {
+      try {
+        localStorage.setItem(BASEMAP_KEY, b);
+      } catch {
+        // хранилище недоступно — выбор просто не запомнится
+      }
+      if (b === "osm" || sat) return setBasemap(b);
+      setSatLoading(true);
+      try {
+        const res = await fetch("/api/basemap/satellite");
+        const data = await res.json().catch(() => null);
+        if (!res.ok || !data?.urlTemplate) throw new Error(data?.error ?? "Спутниковая подложка недоступна");
+        setSat(data as SatelliteLayer);
+        setBasemap("sat");
+      } catch (e) {
+        toast(e instanceof Error ? e.message : "Спутниковая подложка недоступна", "error");
+      } finally {
+        setSatLoading(false);
+      }
+    },
+    [sat, toast],
+  );
+
+  // Восстановить выбранную подложку (асинхронно, после монтирования).
+  useEffect(() => {
+    let saved: string | null = null;
+    try {
+      saved = localStorage.getItem(BASEMAP_KEY);
+    } catch {}
+    if (saved !== "sat") return;
+    const t = setTimeout(() => chooseBasemap("sat"), 0);
+    return () => clearTimeout(t);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
   const showMarkers = zoom < MARKER_MAX_ZOOM;
 
   return (
     <div className="relative h-full w-full">
       <MapContainer center={[42.9, 71.36667]} zoom={13} className="h-full w-full">
-        <TileLayer
-          attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
-          url="https://tile.openstreetmap.org/{z}/{x}/{y}.png"
-          maxZoom={19}
-        />
+        {basemap === "sat" && sat ? (
+          <TileLayer
+            key={sat.layer}
+            attribution={sat.attribution}
+            url={sat.urlTemplate}
+            maxNativeZoom={sat.maxNativeZoom}
+            maxZoom={19}
+          />
+        ) : (
+          <TileLayer key="osm" attribution={OSM_ATTRIBUTION} url="https://tile.openstreetmap.org/{z}/{x}/{y}.png" maxZoom={19} />
+        )}
         <FitBoundsOnce parcels={parcels} signals={signals} />
         <FlyTo focus={focus} />
         <ZoomWatcher onZoom={setZoom} />
@@ -162,6 +214,7 @@ export default function ParcelMap(props: MapProps) {
         </Pane>
       </MapContainer>
       <Legend />
+      <BasemapSwitch value={basemap} loading={satLoading} onChange={chooseBasemap} />
     </div>
   );
 }
