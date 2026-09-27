@@ -1,51 +1,51 @@
-import { KNOWLEDGE, KNOWLEDGE_STUB_TEXT, isFilled, knowledgeFooter, type KnowledgeEntry } from "@/content/knowledge";
+import { KNOWLEDGE, KNOWLEDGE_STUB_TEXT, isFilled, knowledgeFooter, localizeEntry } from "@/content/knowledge";
 import { tx, type BotContext } from "../context";
 import { knowledgeEntryKeyboard, knowledgeListKeyboard } from "../keyboards";
-import { escapeHtml, type Texts } from "../texts";
+import { escapeHtml, type Lang, type Texts } from "../texts";
 
-// Контент базы знаний пока только на русском: для казахского — русский текст + пометка (t.kbRuOnly).
-function formatEntry(t: Texts, e: KnowledgeEntry): string {
+type Entry = ReturnType<typeof localizeEntry>;
+
+function formatEntry(t: Texts, lang: Lang, e: Entry): string {
   const out = [`<b>${escapeHtml(e.title)}</b>`];
   if (!isFilled(e)) {
     out.push("", KNOWLEDGE_STUB_TEXT);
-  } else {
-    if (e.steps.length) {
-      out.push("", `<b>${t.kbSteps}</b>`, ...e.steps.map((s, i) => `${i + 1}. ${escapeHtml(s)}`));
-    }
-    if (e.documents.length) {
-      out.push("", `<b>${t.kbDocs}</b>`, ...e.documents.map((d) => `• ${escapeHtml(d)}`));
-    }
-    if (e.timing.trim()) out.push("", `<b>${t.kbTiming}</b>`, escapeHtml(e.timing));
-    if (e.notes.length) {
-      out.push("", `<b>${t.kbNotes}</b>`, ...e.notes.map((n) => `• ${escapeHtml(n)}`));
-    }
-    if (e.links.length) out.push("", `<b>${t.kbWhere}</b>: ${t.kbWhereButtons}`);
-    if (e.checkedAt) out.push("", `<i>${escapeHtml(knowledgeFooter(e.checkedAt))}</i>`);
+    return out.join("\n");
   }
-  if (t.kbRuOnly) out.push("", `<i>${t.kbRuOnly}</i>`);
+  if (e.steps.length) {
+    out.push("", `<b>${t.kbSteps}</b>`, ...e.steps.map((s, i) => `${i + 1}. ${escapeHtml(s)}`));
+  }
+  if (e.documents.length) {
+    out.push("", `<b>${t.kbDocs}</b>`, ...e.documents.map((d) => `• ${escapeHtml(d)}`));
+  }
+  if (e.timing.trim()) out.push("", `<b>${t.kbTiming}</b>`, escapeHtml(e.timing));
+  if (e.notes.length) {
+    out.push("", `<b>${t.kbNotes}</b>`, ...e.notes.map((n) => `• ${escapeHtml(n)}`));
+  }
+  if (e.links.length) out.push("", `<b>${t.kbWhere}</b>: ${t.kbWhereButtons}`);
+  if (e.checkedAt) out.push("", `<i>${escapeHtml(knowledgeFooter(e.checkedAt, lang))}</i>`);
   return out.join("\n");
 }
 
 export async function showKnowledgeList(ctx: BotContext, edit = false) {
   const t = tx(ctx);
-  const text = t.kbRuOnly ? `${t.kbChoose}\n\n<i>${t.kbRuOnly}</i>` : t.kbChoose;
-  const opts = { parse_mode: "HTML" as const, reply_markup: knowledgeListKeyboard() };
+  const opts = { reply_markup: knowledgeListKeyboard(ctx.lang) };
   if (edit) {
-    await ctx.editMessageText(text, opts).catch(() => ctx.reply(text, opts));
+    await ctx.editMessageText(t.kbChoose, opts).catch(() => ctx.reply(t.kbChoose, opts));
   } else {
-    await ctx.reply(text, opts);
+    await ctx.reply(t.kbChoose, opts);
   }
 }
 
 export async function showKnowledgeEntry(ctx: BotContext, id: string) {
   const t = tx(ctx);
-  const entry = KNOWLEDGE.find((k) => k.id === id);
-  if (!entry) return showKnowledgeList(ctx, true);
+  const found = KNOWLEDGE.find((k) => k.id === id);
+  if (!found) return showKnowledgeList(ctx, true);
+  const entry = localizeEntry(found, ctx.lang);
   const opts = {
     parse_mode: "HTML" as const,
     reply_markup: knowledgeEntryKeyboard(t, entry),
     link_preview_options: { is_disabled: true },
   };
-  const text = formatEntry(t, entry);
+  const text = formatEntry(t, ctx.lang, entry);
   await ctx.editMessageText(text, opts).catch(() => ctx.reply(text, opts));
 }

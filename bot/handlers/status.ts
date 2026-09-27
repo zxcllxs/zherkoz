@@ -5,7 +5,7 @@ import type { Application } from "@/lib/types";
 import { tx, type BotContext } from "../context";
 import { askTrackKeyboard, notFoundKeyboard } from "../keyboards";
 import { clearState, setState } from "../state";
-import { escapeHtml, type Texts } from "../texts";
+import { escapeHtml, type Lang, type Texts } from "../texts";
 
 const TRACK_RE = /^KZ-\d{4}-\d{3}$/;
 export const EXAMPLE_TRACK = "KZ-2026-042";
@@ -14,10 +14,10 @@ export function normalizeTrack(input: string): string {
   return input.trim().toUpperCase().replace(/[‐-―−]/g, "-").replace(/\s+/g, "");
 }
 
-export function formatApplication(t: Texts, app: Application): string {
+export function formatApplication(t: Texts, lang: Lang, app: Application): string {
   const lines = [
     `<b>${t.appTitle} ${escapeHtml(app.trackNumber)}</b>`,
-    `${t.appProcedure}: ${escapeHtml(procedureLabel(app.procedure))}`,
+    `${t.appProcedure}: ${escapeHtml(procedureLabel(app.procedure, lang))}`,
     t.pipeline[app.stage],
   ];
   if (app.stage === "rejected") {
@@ -26,7 +26,7 @@ export function formatApplication(t: Texts, app: Application): string {
     lines.push(`${t.appNote}: ${escapeHtml(app.stageNote)}`);
   }
   lines.push(`${t.appUpdated}: ${formatDateTime(app.updatedAt)}`);
-  // Данные заявлений в реестре — только на русском.
+  // Пояснения к заявлениям в реестре — только на русском.
   if (t.dataInRussian) lines.push("", `<i>${t.dataInRussian}</i>`);
   return lines.join("\n");
 }
@@ -41,7 +41,7 @@ export async function showExample(ctx: BotContext) {
   const t = tx(ctx);
   const app = await getApplication(EXAMPLE_TRACK);
   if (!app) return ctx.reply(t.askTrack, { parse_mode: "HTML" });
-  await ctx.reply(`${t.exampleHeader}\n\n${formatApplication(t, app)}`, { parse_mode: "HTML" });
+  await ctx.reply(`${t.exampleHeader}\n\n${formatApplication(t, ctx.lang, app)}`, { parse_mode: "HTML" });
 }
 
 /** Обработка введённого трек-номера (состояние await_track). */
@@ -56,5 +56,5 @@ export async function handleTrackInput(ctx: BotContext, text: string) {
     return ctx.reply(t.notFound, { reply_markup: notFoundKeyboard(t) });
   }
   await clearState(ctx.chat!.id);
-  await ctx.reply(formatApplication(t, app), { parse_mode: "HTML" });
+  await ctx.reply(formatApplication(t, ctx.lang, app), { parse_mode: "HTML" });
 }

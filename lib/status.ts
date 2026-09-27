@@ -1,4 +1,4 @@
-import { KNOWLEDGE } from "@/content/knowledge";
+import { KNOWLEDGE, localizeEntry, type KnowledgeLang } from "@/content/knowledge";
 import type { ApplicationStage, ParcelStatus, SignalStatus, ViolationType } from "./types";
 
 export const PARCEL_STATUSES: ParcelStatus[] = [
@@ -103,6 +103,7 @@ export const APPLICATION_STAGE_LABEL: Record<ApplicationStage, string> = {
 };
 
 /** Название процедуры — из базы знаний (content/knowledge.ts). */
-export function procedureLabel(id: string): string {
-  return KNOWLEDGE.find((k) => k.id === id)?.title ?? id;
+export function procedureLabel(id: string, lang: KnowledgeLang = "ru"): string {
+  const e = KNOWLEDGE.find((k) => k.id === id);
+  return e ? localizeEntry(e, lang).title : id;
 }

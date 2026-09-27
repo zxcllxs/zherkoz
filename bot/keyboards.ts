@@ -1,6 +1,6 @@
 import { InlineKeyboard, Keyboard } from "grammy";
-import { KNOWLEDGE, KNOWLEDGE_STUB_LINK, isFilled, type KnowledgeEntry } from "@/content/knowledge";
-import { LANGS, LANG_BUTTONS, type Texts } from "./texts";
+import { KNOWLEDGE, KNOWLEDGE_STUB_LINK, isFilled, localizeEntry, type KnowledgeLink } from "@/content/knowledge";
+import { LANGS, LANG_BUTTONS, type Lang, type Texts } from "./texts";
 
 // callback_data
 export const CB = {
@@ -31,11 +31,13 @@ export function notFoundKeyboard(t: Texts) {
   return new InlineKeyboard().text(t.retry, CB.statusRetry).text(t.toMenu, CB.menu);
 }
 
-export function knowledgeListKeyboard() {
-  return InlineKeyboard.from(KNOWLEDGE.map((e) => [InlineKeyboard.text(e.title, CB.kbPrefix + e.id)]));
+export function knowledgeListKeyboard(lang: Lang) {
+  return InlineKeyboard.from(
+    KNOWLEDGE.map((e) => [InlineKeyboard.text(localizeEntry(e, lang).title, CB.kbPrefix + e.id)]),
+  );
 }
 
-export function knowledgeEntryKeyboard(t: Texts, e: KnowledgeEntry) {
+export function knowledgeEntryKeyboard(t: Texts, e: { links: KnowledgeLink[]; steps: string[]; documents: string[]; timing: string }) {
   const kb = new InlineKeyboard();
   const links = isFilled(e) ? e.links : [KNOWLEDGE_STUB_LINK];
   for (const l of links) kb.url(l.title, l.url).row();
