@@ -105,7 +105,7 @@ function DashboardInner() {
       setSelectedSignalId(null);
       setSelectedParcelId(id);
       const p = parcels.find((x) => x.id === id);
-      if (fly && p) setFocus({ center: parcelCenter(p), zoom: 18, key: Date.now() });
+      if (fly && p) setFocus({ center: parcelCenter(p), zoom: 17, key: Date.now() });
     },
     [parcels],
   );

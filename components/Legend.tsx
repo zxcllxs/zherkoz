@@ -5,7 +5,8 @@ import { PARCEL_STATUSES, PARCEL_STATUS_STYLE, SIGNAL_STATUS_STYLE } from "@/lib
 import type { SignalStatus } from "@/lib/types";
 
 export default function Legend() {
-  const [open, setOpen] = useState(true);
+  // На экранах уже 1600px легенда по умолчанию свёрнута, чтобы не закрывать карту.
+  const [open, setOpen] = useState(() => window.innerWidth >= 1600);
   if (!open) {
     return (
       <button

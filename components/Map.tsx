@@ -4,12 +4,15 @@ import "leaflet/dist/leaflet.css";
 import "leaflet-defaulticon-compatibility/dist/leaflet-defaulticon-compatibility.css";
 import "leaflet-defaulticon-compatibility";
 import { useEffect, useState } from "react";
-import { CircleMarker, MapContainer, Pane, Polygon, TileLayer, Tooltip, useMap } from "react-leaflet";
+import { CircleMarker, MapContainer, Pane, Polygon, TileLayer, Tooltip, useMap, useMapEvents } from "react-leaflet";
 import type { PathOptions } from "leaflet";
-import { parcelsBounds, polygonToLeaflet, signalToLeaflet, type LatLngTuple } from "@/lib/geo";
+import { dataBounds, parcelCenter, polygonToLeaflet, signalToLeaflet, type LatLngTuple } from "@/lib/geo";
 import { PARCEL_STATUS_STYLE, SIGNAL_STATUS_STYLE, isOverdue } from "@/lib/status";
 import type { Parcel, PublicSignal } from "@/lib/types";
 import Legend from "./Legend";
+
+/** Ниже этого зума полигоны слишком мелкие — дублируем участки маркерами в центроиде. */
+const MARKER_MAX_ZOOM = 15;
 
 export interface MapFocus {
   center: LatLngTuple;
@@ -28,15 +31,22 @@ export interface MapProps {
   onSelectSignal: (id: string) => void;
 }
 
-function FitBoundsOnce({ parcels }: { parcels: Parcel[] }) {
+/** Начальный вид: все участки и сигналы в кадре (один раз, после первой загрузки данных). */
+function FitBoundsOnce({ parcels, signals }: { parcels: Parcel[]; signals: PublicSignal[] }) {
   const map = useMap();
   const [done, setDone] = useState(false);
   useEffect(() => {
-    if (done || parcels.length === 0) return;
-    const b = parcelsBounds(parcels);
-    if (b) map.fitBounds(b, { padding: [30, 30] });
+    if (done || parcels.length + signals.length === 0) return;
+    const b = dataBounds(parcels, signals);
+    if (b) map.fitBounds(b, { padding: [40, 40] });
     setDone(true); // eslint-disable-line react-hooks/set-state-in-effect
-  }, [done, parcels, map]);
+  }, [done, parcels, signals, map]);
+  return null;
+}
+
+function ZoomWatcher({ onZoom }: { onZoom: (z: number) => void }) {
+  const map = useMapEvents({ zoomend: () => onZoom(map.getZoom()) });
+  useEffect(() => onZoom(map.getZoom()), [map, onZoom]);
   return null;
 }
 
@@ -63,6 +73,8 @@ function parcelStyle(p: Parcel, hovered: boolean, selected: boolean, overdue: bo
 export default function ParcelMap(props: MapProps) {
   const { parcels, signals, selectedParcelId, selectedSignalId, focus, now, onSelectParcel, onSelectSignal } = props;
   const [hovered, setHovered] = useState<string | null>(null);
+  const [zoom, setZoom] = useState(13);
+  const showMarkers = zoom < MARKER_MAX_ZOOM;
 
   return (
     <div className="relative h-full w-full">
@@ -72,8 +84,9 @@ export default function ParcelMap(props: MapProps) {
           url="https://tile.openstreetmap.org/{z}/{x}/{y}.png"
           maxZoom={19}
         />
-        <FitBoundsOnce parcels={parcels} />
+        <FitBoundsOnce parcels={parcels} signals={signals} />
         <FlyTo focus={focus} />
+        <ZoomWatcher onZoom={setZoom} />
         {parcels.map((p) => (
           <Polygon
             key={p.id}
@@ -91,7 +104,36 @@ export default function ParcelMap(props: MapProps) {
             </Tooltip>
           </Polygon>
         ))}
-        {/* Слой сигналов поверх полигонов (overlayPane = 400) */}
+        {/* На мелком масштабе — маркер в центроиде каждого участка (под сигналами) */}
+        {showMarkers && (
+          <Pane name="parcel-markers" style={{ zIndex: 420 }}>
+            {parcels.map((p) => {
+              const overdue = isOverdue(p, now);
+              return (
+                <CircleMarker
+                  key={p.id}
+                  center={parcelCenter(p)}
+                  radius={7}
+                  pathOptions={{
+                    ...parcelStyle(p, hovered === p.id, selectedParcelId === p.id, overdue),
+                    fillOpacity: 0.9,
+                  }}
+                  eventHandlers={{
+                    mouseover: () => setHovered(p.id),
+                    mouseout: () => setHovered((h) => (h === p.id ? null : h)),
+                    click: () => onSelectParcel(p.id),
+                  }}
+                >
+                  <Tooltip>
+                    {p.cadastralNumber} · {PARCEL_STATUS_STYLE[p.status].label}
+                    {overdue && " · ⏰ срок просрочен"}
+                  </Tooltip>
+                </CircleMarker>
+              );
+            })}
+          </Pane>
+        )}
+        {/* Слой сигналов поверх полигонов и маркеров участков */}
         <Pane name="signals" style={{ zIndex: 450 }}>
           {signals.map((s) => {
             const st = SIGNAL_STATUS_STYLE[s.status];
