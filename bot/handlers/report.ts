@@ -3,6 +3,7 @@ import { createSignalFromBot } from "@/lib/signals";
 import { cancelKeyboard, confirmKeyboard, hintsKeyboard, locationKeyboard, mainMenu } from "../keyboards";
 import { clearState, setState, type BotState } from "../state";
 import { tx, type BotContext } from "../context";
+import { publicPageUrl } from "../public-url";
 
 const MAX_TEXT = 500;
 
@@ -81,7 +82,9 @@ export async function onSend(ctx: BotContext, state: BotState | null) {
     text: state.text,
   });
   const t = tx(ctx);
-  await ctx.reply(merged ? t.repDuplicate(signal.id) : t.repAccepted(signal.id), { reply_markup: mainMenu(t) });
+  await ctx.reply(merged ? t.repDuplicate(signal.id) : t.repAccepted(signal.id, publicPageUrl()), {
+    reply_markup: mainMenu(t),
+  });
 }
 
 /** Неверный ввод на шаге: вежливая подсказка, шаг не сбрасываем. */

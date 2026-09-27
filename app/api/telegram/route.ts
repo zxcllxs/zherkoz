@@ -1,6 +1,7 @@
 import { webhookCallback } from "grammy";
 import { getBot } from "@/bot/bot";
 import { jsonError } from "@/lib/http";
+import { rememberBaseUrl } from "@/bot/public-url";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -12,6 +13,7 @@ export async function POST(req: Request) {
   if (!process.env.TELEGRAM_BOT_TOKEN || !secretToken) {
     return jsonError("TELEGRAM_BOT_TOKEN / TELEGRAM_WEBHOOK_SECRET не заданы", 500);
   }
+  rememberBaseUrl(req);
   handler ??= webhookCallback(getBot(), "std/http", { secretToken });
   return handler(req);
 }
