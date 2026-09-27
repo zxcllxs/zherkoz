@@ -168,6 +168,14 @@ export default function ParcelCard({
         >
           🛰 Спутниковая история
         </button>
+        <a
+          href={`/act/${encodeURIComponent(parcel.id)}`}
+          target="_blank"
+          rel="noopener"
+          className="flex min-h-11 items-center rounded-lg border border-slate-300 bg-white px-4 py-2.5 text-sm font-medium text-slate-800 shadow-sm hover:bg-slate-50"
+        >
+          📄 Акт обследования
+        </a>
       </div>
 
       <div>

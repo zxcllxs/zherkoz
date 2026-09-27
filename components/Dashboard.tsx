@@ -163,6 +163,24 @@ function DashboardInner() {
   const onNewSignal = useCallback((s: PublicSignal) => toast(`Новый сигнал ${s.id}`, "info"), [toast]);
   useNewSignalAlert(state ? signals : null, onNewSignal);
 
+  // Ссылка вида /?parcel=P-004 (QR из акта): после первой загрузки открыть карточку и перелететь к участку.
+  const deepLinkDone = useRef(false);
+  useEffect(() => {
+    if (!state || deepLinkDone.current) return;
+    const id = new URLSearchParams(window.location.search).get("parcel");
+    if (!id) {
+      deepLinkDone.current = true;
+      return;
+    }
+    // Флаг — внутри таймера: если эффект перезапустится до срабатывания, переход не потеряется.
+    const t = setTimeout(() => {
+      deepLinkDone.current = true;
+      if (parcels.some((p) => p.id === id)) selectParcel(id, true);
+      else toast(`Участок ${id} не найден`, "error");
+    }, 0);
+    return () => clearTimeout(t);
+  }, [state, parcels, selectParcel, toast]);
+
   const onParcelUpdated = useCallback(
     (p: Parcel) => mutate((s) => ({ ...s, parcels: s.parcels.map((x) => (x.id === p.id ? p : x)) })),
     [mutate],

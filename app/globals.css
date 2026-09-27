@@ -59,3 +59,18 @@ body {
     font-size: 22px;
   }
 }
+
+/* Печатный акт обследования: A4 */
+@media print {
+  @page {
+    size: A4;
+    margin: 14mm;
+  }
+  html,
+  body {
+    background: #fff !important;
+  }
+  .act-page img {
+    break-inside: avoid;
+  }
+}
