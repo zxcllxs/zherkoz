@@ -74,3 +74,19 @@ export function changeDeadline(
     },
   };
 }
+
+/** URL фото из Telegram (через серверный прокси — токен бота не уходит на клиент). */
+export function tgPhotoUrl(fileId: string): string {
+  return `/api/tg-photo/${encodeURIComponent(fileId)}`;
+}
+
+/** Добавляет фото жителя из сигнала в участок (без дублей) с записью в истории. */
+export function addResidentPhoto(parcel: Parcel, signalId: string, fileId: string, now: number = Date.now()): Parcel {
+  const url = tgPhotoUrl(fileId);
+  if (parcel.photos.includes(url)) return parcel;
+  return {
+    ...parcel,
+    photos: [...parcel.photos, url],
+    history: [...parcel.history, { at: new Date(now).toISOString(), action: `Добавлено фото жителя (сигнал ${signalId})` }],
+  };
+}

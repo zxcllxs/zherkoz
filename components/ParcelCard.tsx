@@ -178,10 +178,7 @@ export default function ParcelCard({
         ) : (
           <div className="grid grid-cols-3 gap-2">
             {parcel.photos.map((url) => (
-              <button key={url} onClick={() => setLightbox(url)} className="aspect-square overflow-hidden rounded-md bg-slate-100">
-                {/* eslint-disable-next-line @next/next/no-img-element */}
-                <img src={url} alt="Фото участка" loading="lazy" className="h-full w-full object-cover" />
-              </button>
+              <PhotoThumb key={url} url={url} onOpen={() => setLightbox(url)} />
             ))}
           </div>
         )}
@@ -228,5 +225,33 @@ export default function ParcelCard({
       )}
       {lightbox && <Lightbox src={lightbox} onClose={() => setLightbox(null)} />}
     </div>
+  );
+}
+
+/** Миниатюра фото: инспектора (Vercel Blob) или жителя (/api/tg-photo/…, с пометкой). */
+function PhotoThumb({ url, onOpen }: { url: string; onOpen: () => void }) {
+  const [failed, setFailed] = useState(false);
+  const fromResident = url.startsWith("/api/tg-photo/");
+  if (failed) {
+    return (
+      <div className="flex aspect-square items-center justify-center rounded-md border border-dashed border-slate-300 bg-slate-50 p-1 text-center text-[11px] text-slate-500">
+        фото недоступно
+      </div>
+    );
+  }
+  return (
+    <button onClick={onOpen} className="relative aspect-square overflow-hidden rounded-md bg-slate-100">
+      {/* eslint-disable-next-line @next/next/no-img-element */}
+      <img
+        src={url}
+        alt={fromResident ? "Фото жителя" : "Фото участка"}
+        loading="lazy"
+        className="h-full w-full object-cover"
+        onError={() => setFailed(true)}
+      />
+      {fromResident && (
+        <span className="absolute bottom-0 left-0 right-0 bg-black/55 px-1 py-0.5 text-[10px] text-white">от жителя</span>
+      )}
+    </button>
   );
 }
