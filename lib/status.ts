@@ -1,3 +1,4 @@
+import { KNOWLEDGE } from "@/content/knowledge";
 import type { ApplicationStage, ParcelStatus, SignalStatus, ViolationType } from "./types";
 
 export const PARCEL_STATUSES: ParcelStatus[] = [
@@ -101,8 +102,7 @@ export const APPLICATION_STAGE_LABEL: Record<ApplicationStage, string> = {
   rejected: "Отказ",
 };
 
-export const PROCEDURE_LABEL: Record<string, string> = {
-  izhs: "Участок под ИЖС",
-  purpose_change: "Изменение целевого назначения",
-  lease_extension: "Продление аренды",
-};
+/** Название процедуры — из базы знаний (content/knowledge.ts). */
+export function procedureLabel(id: string): string {
+  return KNOWLEDGE.find((k) => k.id === id)?.title ?? id;
+}
