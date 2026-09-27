@@ -1,10 +1,29 @@
+"use client";
+
+import { useState } from "react";
 import { PARCEL_STATUSES, PARCEL_STATUS_STYLE, SIGNAL_STATUS_STYLE } from "@/lib/status";
 import type { SignalStatus } from "@/lib/types";
 
 export default function Legend() {
+  const [open, setOpen] = useState(true);
+  if (!open) {
+    return (
+      <button
+        onClick={() => setOpen(true)}
+        className="absolute bottom-6 left-3 z-[1000] rounded-lg bg-white/95 px-3 py-2 text-xs font-semibold text-slate-700 shadow-md ring-1 ring-slate-200 hover:bg-white"
+      >
+        Легенда ▴
+      </button>
+    );
+  }
   return (
     <div className="absolute bottom-6 left-3 z-[1000] rounded-lg bg-white/95 p-3 text-xs shadow-md ring-1 ring-slate-200">
-      <div className="mb-1.5 font-semibold text-slate-700">Статус участка</div>
+      <div className="mb-1.5 flex items-center justify-between gap-4 font-semibold text-slate-700">
+        Статус участка
+        <button onClick={() => setOpen(false)} className="text-slate-400 hover:text-slate-700" aria-label="Свернуть легенду">
+          ▾
+        </button>
+      </div>
       <ul className="space-y-1">
         {PARCEL_STATUSES.map((s) => {
           const st = PARCEL_STATUS_STYLE[s];

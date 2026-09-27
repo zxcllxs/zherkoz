@@ -12,6 +12,7 @@ const INTERVAL_MS = 4000;
  */
 export function usePolling(onError: (msg: string) => void) {
   const [state, setState] = useState<StateResponse | null>(null);
+  const [error, setError] = useState<string | null>(null);
   const mutationSeq = useRef(0);
   const inFlight = useRef(false);
   const errorShown = useRef(false);
@@ -27,10 +28,13 @@ export function usePolling(onError: (msg: string) => void) {
     try {
       const data = await fetchState();
       if (seqAtStart === mutationSeq.current) setState(data);
+      setError(null);
       errorShown.current = false;
     } catch (e) {
+      const msg = e instanceof Error ? e.message : "Ошибка загрузки данных";
+      setError(msg);
       if (!errorShown.current) {
-        onErrorRef.current(e instanceof Error ? e.message : "Ошибка загрузки данных");
+        onErrorRef.current(msg);
         errorShown.current = true; // не спамим тостами при каждом опросе
       }
     } finally {
@@ -58,5 +62,5 @@ export function usePolling(onError: (msg: string) => void) {
     setState((s) => (s ? fn(s) : s));
   }, []);
 
-  return { state, refresh, mutate };
+  return { state, error, refresh, mutate };
 }

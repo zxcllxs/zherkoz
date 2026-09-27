@@ -20,7 +20,10 @@ import SignalList from "./SignalList";
 const ParcelMap = dynamic(() => import("./Map"), {
   ssr: false,
   loading: () => (
-    <div className="flex h-full items-center justify-center text-sm text-slate-500">Загрузка карты…</div>
+    <div className="flex h-full flex-col items-center justify-center gap-3 bg-slate-100 text-sm text-slate-500">
+      <span className="h-8 w-8 animate-spin rounded-full border-2 border-slate-300 border-t-slate-700" />
+      Загрузка карты…
+    </div>
   ),
 });
 
@@ -37,7 +40,7 @@ export default function Dashboard() {
 function DashboardInner() {
   const toast = useToast();
   const onError = useCallback((m: string) => toast(m, "error"), [toast]);
-  const { state, mutate } = usePolling(onError);
+  const { state, error, refresh, mutate } = usePolling(onError);
   const [tab, setTab] = useState<Tab>("parcels");
   const [selectedParcelId, setSelectedParcelId] = useState<string | null>(null);
   const [selectedSignalId, setSelectedSignalId] = useState<string | null>(null);
@@ -187,7 +190,23 @@ function DashboardInner() {
           </div>
           <div className="min-h-0 flex-1 overflow-y-auto">
             {!state ? (
-              <p className="p-6 text-center text-sm text-slate-500">Загрузка данных…</p>
+              error ? (
+                <div className="p-6 text-center text-sm">
+                  <p className="mb-1 font-medium text-slate-800">Не удалось загрузить данные</p>
+                  <p className="mb-4 text-slate-500">{error}</p>
+                  <button
+                    onClick={() => refresh()}
+                    className="rounded-lg bg-slate-800 px-4 py-2 text-sm font-medium text-white hover:bg-slate-900"
+                  >
+                    Повторить
+                  </button>
+                </div>
+              ) : (
+                <div className="flex flex-col items-center gap-3 p-8 text-sm text-slate-500">
+                  <span className="h-6 w-6 animate-spin rounded-full border-2 border-slate-300 border-t-slate-700" />
+                  Загрузка данных…
+                </div>
+              )
             ) : tab === "parcels" ? (
               selectedParcel ? (
                 <ParcelCard
