@@ -39,3 +39,23 @@ body {
 .signal-new {
   animation: signal-pulse 1.6s ease-out infinite;
 }
+
+/* Мобильная раскладка: высота свёрнутой нижней панели (ручка 44px + вкладки 45px) */
+:root {
+  --sheet-peek: 90px;
+}
+
+@media (max-width: 767.98px) {
+  /* Касательные цели не меньше 44px */
+  .touch-targets button,
+  .touch-targets input[type="search"],
+  .touch-targets label:has(input) {
+    min-height: 44px;
+  }
+  .touch-targets .leaflet-container .leaflet-bar a {
+    width: 44px;
+    height: 44px;
+    line-height: 44px;
+    font-size: 22px;
+  }
+}

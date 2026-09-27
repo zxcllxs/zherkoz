@@ -50,6 +50,17 @@ function FitBoundsOnce({ parcels, signals }: { parcels: Parcel[]; signals: Publi
   return null;
 }
 
+/** Пересчёт размера карты при изменении контейнера (мобильная шапка/панель, поворот экрана). */
+function SizeWatcher() {
+  const map = useMap();
+  useEffect(() => {
+    const ro = new ResizeObserver(() => map.invalidateSize());
+    ro.observe(map.getContainer());
+    return () => ro.disconnect();
+  }, [map]);
+  return null;
+}
+
 function ZoomWatcher({ onZoom }: { onZoom: (z: number) => void }) {
   const map = useMapEvents({ zoomend: () => onZoom(map.getZoom()) });
   useEffect(() => onZoom(map.getZoom()), [map, onZoom]);
@@ -139,6 +150,7 @@ export default function ParcelMap(props: MapProps) {
         <FitBoundsOnce parcels={parcels} signals={signals} />
         <FlyTo focus={focus} />
         <ZoomWatcher onZoom={setZoom} />
+        <SizeWatcher />
         {parcels.map((p) => (
           <Polygon
             key={p.id}

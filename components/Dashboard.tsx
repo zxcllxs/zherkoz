@@ -1,7 +1,7 @@
 "use client";
 
 import dynamic from "next/dynamic";
-import { useCallback, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { parcelCenter, signalToLeaflet } from "@/lib/geo";
 import { PARCEL_STATUSES, isOverdue } from "@/lib/status";
 import type { Application, Parcel, PublicSignal } from "@/lib/types";
@@ -52,6 +52,10 @@ function DashboardInner() {
   const [filter, setFilter] = useState<ParcelFilter>(EMPTY_FILTER);
   const [activeCounter, setActiveCounter] = useState<CounterKey | null>(null);
   const [newSignalsOnly, setNewSignalsOnly] = useState(false);
+  // Мобильная раскладка: нижняя панель (<768px) и сворачиваемая шапка (<1024px). На десктопе не влияют.
+  const [sheetOpen, setSheetOpen] = useState(false);
+  const [headerOpen, setHeaderOpen] = useState(false);
+  const sidebarScroll = useRef<HTMLDivElement>(null);
 
   const parcels = useMemo(() => state?.parcels ?? [], [state]);
   const signals = useMemo(() => state?.signals ?? [], [state]);
@@ -60,6 +64,11 @@ function DashboardInner() {
   const now = state ? Date.parse(state.serverTime) : 0;
   const selectedParcel = parcels.find((p) => p.id === selectedParcelId) ?? null;
   const selectedSignal = signals.find((s) => s.id === selectedSignalId) ?? null;
+
+  // Новая карточка или смена вкладки — показываем с начала, а не с позиции прокрутки списка.
+  useEffect(() => {
+    sidebarScroll.current?.scrollTo({ top: 0 });
+  }, [tab, selectedParcelId, selectedSignalId, selectedTrack]);
 
   const overdueOf = useCallback((p: Parcel) => isOverdue(p, now), [now]);
   const filteredParcels = useMemo(() => applyFilter(parcels, filter, overdueOf), [parcels, filter, overdueOf]);
@@ -88,6 +97,8 @@ function DashboardInner() {
   ];
 
   const onCounter = (k: CounterKey) => {
+    setSheetOpen(true);
+    setHeaderOpen(false);
     setActiveCounter(k === "all" ? null : k);
     setSelectedParcelId(null);
     setSelectedSignalId(null);
@@ -108,6 +119,7 @@ function DashboardInner() {
   const selectParcel = useCallback(
     (id: string, fly = false) => {
       setTab("parcels");
+      setSheetOpen(true);
       setSelectedSignalId(null);
       setSelectedParcelId(id);
       const p = parcels.find((x) => x.id === id);
@@ -119,6 +131,7 @@ function DashboardInner() {
   const selectSignal = useCallback(
     (id: string, fly = false) => {
       setTab("signals");
+      setSheetOpen(true);
       setSelectedParcelId(null);
       setSelectedSignalId(id);
       const s = signals.find((x) => x.id === id);
@@ -164,35 +177,60 @@ function DashboardInner() {
     filter.query.trim() !== "" || filter.overdueOnly || filter.statuses.length !== PARCEL_STATUSES.length;
 
   const tabBtn = (t: Tab) =>
-    `flex-1 whitespace-nowrap border-b-2 px-2 py-2.5 text-sm font-medium ${
+    `min-h-11 flex-1 whitespace-nowrap border-b-2 px-2 py-2.5 text-sm font-medium ${
       tab === t ? "border-blue-600 text-blue-700" : "border-transparent text-slate-600 hover:text-slate-900"
     }`;
 
   return (
-    <div className="flex h-screen flex-col">
-      <header className="flex flex-wrap items-center justify-between gap-x-4 gap-y-2 border-b border-slate-200 bg-white px-5 py-3">
-        <div className="flex items-center gap-3">
-          <h1 className="text-lg font-semibold text-slate-900">
-            ЖерКөз <span className="font-normal text-slate-400">·</span>{" "}
-            <span className="font-normal text-slate-700">Панель земельного инспектора</span>{" "}
-            <span className="font-normal text-slate-400">·</span>{" "}
-            <span className="font-normal text-slate-700">г. Тараз</span>
+    <div className="touch-targets flex h-dvh flex-col">
+      <header className="relative z-[1200] flex flex-wrap items-center justify-between gap-x-4 gap-y-2 border-b border-slate-200 bg-white px-3 py-2 md:px-5 md:py-3">
+        <div className="flex min-w-0 flex-1 items-center gap-2 md:gap-3 lg:flex-none">
+          <h1 className="truncate text-base font-semibold text-slate-900 md:text-lg">
+            ЖерКөз
+            <span className="hidden md:inline">
+              {" "}
+              <span className="font-normal text-slate-400">·</span>{" "}
+              <span className="font-normal text-slate-700">Панель земельного инспектора</span>{" "}
+              <span className="font-normal text-slate-400">·</span>{" "}
+              <span className="font-normal text-slate-700">г. Тараз</span>
+            </span>
           </h1>
-          <span className="rounded-md bg-amber-100 px-2 py-0.5 text-xs font-medium text-amber-800 ring-1 ring-amber-200">
-            Демо: тестовые данные
+          <span className="shrink-0 rounded-md bg-amber-100 px-2 py-0.5 text-xs font-medium text-amber-800 ring-1 ring-amber-200">
+            Демо<span className="hidden sm:inline">: тестовые данные</span>
           </span>
+          {state && (
+            <button
+              onClick={() => setHeaderOpen((o) => !o)}
+              aria-expanded={headerOpen}
+              className="ml-auto shrink-0 rounded-lg border border-slate-300 px-3 text-sm text-slate-700 lg:hidden"
+            >
+              Показатели {headerOpen ? "▴" : "▾"}
+            </button>
+          )}
         </div>
         {state && (
-          <div className="flex flex-wrap items-center gap-2">
+          <div className={`${headerOpen ? "flex" : "hidden"} w-full flex-wrap items-center gap-2 lg:flex lg:w-auto`}>
             <Counters items={counterItems} active={activeCounter} onClick={onCounter} />
             <ExportMenu parcels={parcels} signals={signals} now={now} />
           </div>
         )}
       </header>
 
-      <main className="flex min-h-0 flex-1">
-        <aside className="flex w-[360px] shrink-0 flex-col border-r border-slate-200 bg-white">
-          <div className="flex border-b border-slate-200">
+      <main className="relative flex min-h-0 flex-1">
+        <aside
+          className={`fixed inset-x-0 bottom-0 z-[1100] flex flex-col rounded-t-2xl bg-white shadow-[0_-6px_20px_rgba(15,23,42,0.18)] transition-[height] duration-200 ${
+            sheetOpen ? "h-[65dvh]" : "h-[var(--sheet-peek)]"
+          } md:static md:z-auto md:h-auto md:w-[360px] md:shrink-0 md:rounded-none md:border-r md:border-slate-200 md:shadow-none md:transition-none`}
+        >
+          <button
+            onClick={() => setSheetOpen((o) => !o)}
+            aria-expanded={sheetOpen}
+            className="flex h-11 w-full shrink-0 flex-col items-center justify-center gap-1 text-xs text-slate-500 md:hidden"
+          >
+            <span className="h-1.5 w-10 rounded-full bg-slate-300" />
+            {sheetOpen ? "Свернуть ▾" : "Список и карточки ▴"}
+          </button>
+          <div className="flex border-b border-slate-200" onClick={() => setSheetOpen(true)}>
             <button className={tabBtn("parcels")} onClick={() => setTab("parcels")}>
               Участки
             </button>
@@ -211,7 +249,7 @@ function DashboardInner() {
               Заявления
             </button>
           </div>
-          <div className="min-h-0 flex-1 overflow-y-auto">
+          <div ref={sidebarScroll} className="min-h-0 flex-1 overflow-y-auto">
             {!state ? (
               error ? (
                 <div className="p-6 text-center text-sm">
@@ -300,7 +338,7 @@ function DashboardInner() {
             )}
           </div>
         </aside>
-        <section className="relative min-w-0 flex-1">
+        <section className="absolute inset-x-0 top-0 bottom-[var(--sheet-peek)] md:relative md:inset-auto md:min-w-0 md:flex-1">
           <ParcelMap
             parcels={filteredParcels}
             signals={signals}

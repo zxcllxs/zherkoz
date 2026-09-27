@@ -71,7 +71,7 @@ export default function GeoJsonTools({
   };
 
   const btn =
-    "min-h-11 flex-1 rounded-lg border border-slate-300 bg-white px-3 py-1.5 text-sm text-slate-800 hover:bg-slate-50 disabled:opacity-50";
+    "min-h-11 flex-1 whitespace-nowrap rounded-lg border border-slate-300 bg-white px-2 py-1.5 text-[13px] text-slate-800 hover:bg-slate-50 disabled:opacity-50";
 
   return (
     <div className="flex gap-2 border-b border-slate-100 px-4 py-2">
