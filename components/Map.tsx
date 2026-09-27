@@ -12,8 +12,7 @@ import { PARCEL_STATUS_STYLE, SIGNAL_STATUS_STYLE, isOverdue } from "@/lib/statu
 import type { Parcel, PublicSignal } from "@/lib/types";
 import Legend from "./Legend";
 import BasemapSwitch, { type Basemap } from "./BasemapSwitch";
-import { useToast } from "./Toasts";
-import type { SatelliteLayer } from "@/lib/wmts";
+import { S2_LATEST_YEAR, S2_MAX_NATIVE_ZOOM, s2AttributionHtml, s2TileUrl } from "@/lib/satellite";
 import type { RoutePlan } from "@/lib/route-plan";
 
 const BASEMAP_KEY = "zherkoz:basemap";
@@ -115,34 +114,15 @@ export default function ParcelMap(props: MapProps) {
   const { parcels, signals, selectedParcelId, selectedSignalId, focus, now, route, onSelectParcel, onSelectSignal } = props;
   const [hovered, setHovered] = useState<string | null>(null);
   const [zoom, setZoom] = useState(13);
-  const toast = useToast();
   const [basemap, setBasemap] = useState<Basemap>("osm");
-  const [sat, setSat] = useState<SatelliteLayer | null>(null);
-  const [satLoading, setSatLoading] = useState(false);
-
-  const chooseBasemap = useCallback(
-    async (b: Basemap) => {
-      try {
-        localStorage.setItem(BASEMAP_KEY, b);
-      } catch {
-        // хранилище недоступно — выбор просто не запомнится
-      }
-      if (b === "osm" || sat) return setBasemap(b);
-      setSatLoading(true);
-      try {
-        const res = await fetch("/api/basemap/satellite");
-        const data = await res.json().catch(() => null);
-        if (!res.ok || !data?.urlTemplate) throw new Error(data?.error ?? "Спутниковая подложка недоступна");
-        setSat(data as SatelliteLayer);
-        setBasemap("sat");
-      } catch (e) {
-        toast(e instanceof Error ? e.message : "Спутниковая подложка недоступна", "error");
-      } finally {
-        setSatLoading(false);
-      }
-    },
-    [sat, toast],
-  );
+  const chooseBasemap = useCallback((b: Basemap) => {
+    try {
+      localStorage.setItem(BASEMAP_KEY, b);
+    } catch {
+      // хранилище недоступно — выбор просто не запомнится
+    }
+    setBasemap(b);
+  }, []);
 
   // Восстановить выбранную подложку (асинхронно, после монтирования).
   useEffect(() => {
@@ -151,21 +131,20 @@ export default function ParcelMap(props: MapProps) {
       saved = localStorage.getItem(BASEMAP_KEY);
     } catch {}
     if (saved !== "sat") return;
-    const t = setTimeout(() => chooseBasemap("sat"), 0);
+    const t = setTimeout(() => setBasemap("sat"), 0);
     return () => clearTimeout(t);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
   const showMarkers = zoom < MARKER_MAX_ZOOM;
 
   return (
     <div className="relative h-full w-full">
       <MapContainer center={[42.9, 71.36667]} zoom={13} className="h-full w-full">
-        {basemap === "sat" && sat ? (
+        {basemap === "sat" ? (
           <TileLayer
-            key={sat.layer}
-            attribution={sat.attribution}
-            url={sat.urlTemplate}
-            maxNativeZoom={sat.maxNativeZoom}
+            key="sat"
+            attribution={s2AttributionHtml(String(S2_LATEST_YEAR))}
+            url={s2TileUrl(S2_LATEST_YEAR)}
+            maxNativeZoom={S2_MAX_NATIVE_ZOOM}
             maxZoom={19}
           />
         ) : (
@@ -276,7 +255,7 @@ export default function ParcelMap(props: MapProps) {
         )}
       </MapContainer>
       <Legend />
-      <BasemapSwitch value={basemap} loading={satLoading} onChange={chooseBasemap} />
+      <BasemapSwitch value={basemap} onChange={chooseBasemap} />
     </div>
   );
 }
