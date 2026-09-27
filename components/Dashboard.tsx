@@ -18,6 +18,7 @@ import SignalCard from "./SignalCard";
 import SignalList from "./SignalList";
 import AppList from "./AppList";
 import AppCard from "./AppCard";
+import GeoJsonTools from "./GeoJsonTools";
 
 const ParcelMap = dynamic(() => import("./Map"), {
   ssr: false,
@@ -144,6 +145,11 @@ function DashboardInner() {
     [mutate],
   );
 
+  const onParcelsImported = useCallback(
+    (added: Parcel[]) => mutate((s) => ({ ...s, parcels: [...s.parcels, ...added] })),
+    [mutate],
+  );
+
   const onAppUpdated = useCallback(
     (a: Application) =>
       mutate((s) => ({ ...s, apps: s.apps.map((x) => (x.trackNumber === a.trackNumber ? a : x)) })),
@@ -235,6 +241,7 @@ function DashboardInner() {
                 />
               ) : (
                 <>
+                  <GeoJsonTools parcels={parcels} now={now} onImported={onParcelsImported} />
                   <Filters value={filter} onChange={onFilterChange} />
                   <div className="flex items-center justify-between px-4 py-2 text-xs text-slate-500">
                     <span>

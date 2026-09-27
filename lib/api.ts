@@ -60,3 +60,18 @@ export const patchApp = (track: string, body: { stage: ApplicationStage; stageNo
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify(body),
   });
+
+export interface ImportResult {
+  dryRun: boolean;
+  added: number;
+  skipped: { cadastralNumber: string; reason: string }[];
+  preview: { id: string; cadastralNumber: string; areaHa: number }[];
+  parcels?: Parcel[];
+}
+
+export const importGeoJSON = (collection: unknown, dryRun: boolean) =>
+  request<ImportResult>(`/api/parcels/import${dryRun ? "?dryRun=1" : ""}`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(collection),
+  });
