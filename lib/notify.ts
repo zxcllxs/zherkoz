@@ -4,7 +4,8 @@ import { getBot } from "@/bot/bot";
 import { getLang } from "@/bot/state";
 import { TEXTS, type Lang } from "@/bot/texts";
 import { formatDate } from "./format";
-import type { Parcel, Signal } from "./types";
+import { getRedis, KEYS } from "./redis";
+import type { Application, Parcel, Signal } from "./types";
 
 export function signalStatusMessage(signal: Signal, parcel: Parcel | null, lang: Lang = "ru"): string | null {
   const n = TEXTS[lang].notify;
@@ -34,5 +35,32 @@ export async function notifySignalStatus(signal: Signal, parcel: Parcel | null):
     await getBot().api.sendMessage(signal.chatId, text);
   } catch (e) {
     console.error(`[notify] ${signal.id}:`, e instanceof Error ? e.message : e);
+  }
+}
+
+/**
+ * Смена этапа заявления → сообщение всем подписчикам трек-номера (bot:sub:{track}) на их языке.
+ * Ошибки отправки только логируются. Возвращает число успешно отправленных сообщений.
+ */
+export async function notifyApplicationStage(app: Application): Promise<number> {
+  try {
+    const ids = await getRedis().smembers(KEYS.botSub(app.trackNumber));
+    const results = await Promise.allSettled(
+      ids.map(async (raw) => {
+        const chatId = Number(raw);
+        if (!Number.isSafeInteger(chatId) || chatId === 0) return;
+        const t = TEXTS[(await getLang(chatId)) ?? "ru"];
+        await getBot().api.sendMessage(chatId, t.appChanged(app.trackNumber, t.stageLabel[app.stage], app.stageNote));
+      }),
+    );
+    results.forEach((r) => {
+      if (r.status === "rejected") {
+        console.error(`[notify] ${app.trackNumber}:`, r.reason instanceof Error ? r.reason.message : r.reason);
+      }
+    });
+    return results.filter((r) => r.status === "fulfilled").length;
+  } catch (e) {
+    console.error(`[notify] ${app.trackNumber}:`, e instanceof Error ? e.message : e);
+    return 0;
   }
 }

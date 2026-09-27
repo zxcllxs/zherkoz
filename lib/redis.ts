@@ -8,6 +8,8 @@ export const KEYS = {
   signalSeq: "signal:seq",
   botState: (chatId: number) => `bot:state:${chatId}`,
   botLang: (chatId: number) => `bot:lang:${chatId}`,
+  // chatId жителей, проверявших статус заявления (для уведомлений). В панель не отдаётся.
+  botSub: (track: string) => `bot:sub:${track}`,
 } as const;
 
 let client: Redis | null = null;
@@ -55,6 +57,15 @@ export async function getSignal(id: string): Promise<Signal | null> {
 
 export async function saveSignal(s: Signal): Promise<void> {
   await getRedis().hset(KEYS.signals, { [s.id]: JSON.stringify(s) });
+}
+
+export async function getAllApps(): Promise<Application[]> {
+  const list = await hvalues<Application>(KEYS.apps);
+  return list.sort((a, b) => a.trackNumber.localeCompare(b.trackNumber));
+}
+
+export async function saveApplication(a: Application): Promise<void> {
+  await getRedis().hset(KEYS.apps, { [a.trackNumber]: JSON.stringify(a) });
 }
 
 export async function getApplication(trackNumber: string): Promise<Application | null> {

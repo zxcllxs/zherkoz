@@ -4,7 +4,7 @@ import dynamic from "next/dynamic";
 import { useCallback, useMemo, useState } from "react";
 import { parcelCenter, signalToLeaflet } from "@/lib/geo";
 import { PARCEL_STATUSES, isOverdue } from "@/lib/status";
-import type { Parcel, PublicSignal } from "@/lib/types";
+import type { Application, Parcel, PublicSignal } from "@/lib/types";
 import type { MapFocus } from "./Map";
 import { usePolling } from "./usePolling";
 import { useNewSignalAlert } from "./useNewSignalAlert";
@@ -16,6 +16,8 @@ import ParcelCard from "./ParcelCard";
 import ParcelList from "./ParcelList";
 import SignalCard from "./SignalCard";
 import SignalList from "./SignalList";
+import AppList from "./AppList";
+import AppCard from "./AppCard";
 
 const ParcelMap = dynamic(() => import("./Map"), {
   ssr: false,
@@ -27,7 +29,7 @@ const ParcelMap = dynamic(() => import("./Map"), {
   ),
 });
 
-type Tab = "parcels" | "signals";
+type Tab = "parcels" | "signals" | "apps";
 
 export default function Dashboard() {
   return (
@@ -44,6 +46,7 @@ function DashboardInner() {
   const [tab, setTab] = useState<Tab>("parcels");
   const [selectedParcelId, setSelectedParcelId] = useState<string | null>(null);
   const [selectedSignalId, setSelectedSignalId] = useState<string | null>(null);
+  const [selectedTrack, setSelectedTrack] = useState<string | null>(null);
   const [focus, setFocus] = useState<MapFocus | null>(null);
   const [filter, setFilter] = useState<ParcelFilter>(EMPTY_FILTER);
   const [activeCounter, setActiveCounter] = useState<CounterKey | null>(null);
@@ -51,6 +54,8 @@ function DashboardInner() {
 
   const parcels = useMemo(() => state?.parcels ?? [], [state]);
   const signals = useMemo(() => state?.signals ?? [], [state]);
+  const apps = useMemo(() => state?.apps ?? [], [state]);
+  const selectedApp = apps.find((a) => a.trackNumber === selectedTrack) ?? null;
   const now = state ? Date.parse(state.serverTime) : 0;
   const selectedParcel = parcels.find((p) => p.id === selectedParcelId) ?? null;
   const selectedSignal = signals.find((s) => s.id === selectedSignalId) ?? null;
@@ -139,6 +144,12 @@ function DashboardInner() {
     [mutate],
   );
 
+  const onAppUpdated = useCallback(
+    (a: Application) =>
+      mutate((s) => ({ ...s, apps: s.apps.map((x) => (x.trackNumber === a.trackNumber ? a : x)) })),
+    [mutate],
+  );
+
   const onFilterChange = (f: ParcelFilter) => {
     setFilter(f);
     setActiveCounter(null);
@@ -147,7 +158,7 @@ function DashboardInner() {
     filter.query.trim() !== "" || filter.overdueOnly || filter.statuses.length !== PARCEL_STATUSES.length;
 
   const tabBtn = (t: Tab) =>
-    `flex-1 border-b-2 px-3 py-2.5 text-sm font-medium ${
+    `flex-1 whitespace-nowrap border-b-2 px-2 py-2.5 text-sm font-medium ${
       tab === t ? "border-blue-600 text-blue-700" : "border-transparent text-slate-600 hover:text-slate-900"
     }`;
 
@@ -182,10 +193,16 @@ function DashboardInner() {
             <button className={tabBtn("signals")} onClick={() => setTab("signals")}>
               Сигналы{" "}
               {counts.newSignals > 0 && (
-                <span className="ml-1 rounded-full bg-orange-500 px-1.5 py-0.5 text-xs text-white">
-                  {counts.newSignals} {counts.newSignals === 1 ? "новый" : "новых"}
+                <span
+                  title={`Новых сигналов: ${counts.newSignals}`}
+                  className="ml-1 whitespace-nowrap rounded-full bg-orange-500 px-1.5 py-0.5 text-xs text-white"
+                >
+                  {counts.newSignals} нов.
                 </span>
               )}
+            </button>
+            <button className={tabBtn("apps")} onClick={() => setTab("apps")}>
+              Заявления
             </button>
           </div>
           <div className="min-h-0 flex-1 overflow-y-auto">
@@ -237,6 +254,17 @@ function DashboardInner() {
                   </div>
                   <ParcelList parcels={filteredParcels} now={now} onSelect={(id) => selectParcel(id, true)} />
                 </>
+              )
+            ) : tab === "apps" ? (
+              selectedApp ? (
+                <AppCard
+                  key={selectedApp.trackNumber}
+                  app={selectedApp}
+                  onBack={() => setSelectedTrack(null)}
+                  onUpdated={onAppUpdated}
+                />
+              ) : (
+                <AppList apps={apps} onSelect={setSelectedTrack} />
               )
             ) : selectedSignal ? (
               <SignalCard

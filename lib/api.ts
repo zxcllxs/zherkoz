@@ -1,5 +1,5 @@
 // Клиентские вызовы API панели. Ошибки — Error с текстом из {error}.
-import type { Parcel, PublicSignal, SignalStatus, StateResponse, ViolationType } from "./types";
+import type { Application, ApplicationStage, Parcel, PublicSignal, SignalStatus, StateResponse, ViolationType } from "./types";
 import type { ParcelTransitionInput } from "./parcels";
 
 async function request<T>(url: string, init?: RequestInit): Promise<T> {
@@ -52,4 +52,11 @@ export const patchParcelDeadline = (id: string, deadline: string) =>
     method: "PATCH",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ deadline }),
+  });
+
+export const patchApp = (track: string, body: { stage: ApplicationStage; stageNote: string }) =>
+  request<{ app: Application; notified: number }>(`/api/apps/${encodeURIComponent(track)}`, {
+    method: "PATCH",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(body),
   });

@@ -23,6 +23,11 @@ export async function clearState(chatId: number): Promise<void> {
   await getRedis().del(KEYS.botState(chatId));
 }
 
+/** Подписка жителя на уведомления по трек-номеру (после успешной проверки статуса). */
+export async function subscribeToApp(track: string, chatId: number): Promise<void> {
+  await getRedis().sadd(KEYS.botSub(track), String(chatId));
+}
+
 // Язык жителя: bot:lang:{chatId}, без TTL.
 export async function getLang(chatId: number): Promise<Lang | null> {
   const v = await getRedis().get<string>(KEYS.botLang(chatId));

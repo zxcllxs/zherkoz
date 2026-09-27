@@ -75,6 +75,7 @@ export type PublicSignal = Omit<Signal, "chatId">;
 export interface StateResponse {
   parcels: Parcel[];
   signals: PublicSignal[];
+  apps: Application[];
   serverTime: string;
 }
 

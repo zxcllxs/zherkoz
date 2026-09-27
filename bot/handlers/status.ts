@@ -4,7 +4,7 @@ import { procedureLabel } from "@/lib/status";
 import type { Application } from "@/lib/types";
 import { tx, type BotContext } from "../context";
 import { askTrackKeyboard, notFoundKeyboard } from "../keyboards";
-import { clearState, setState } from "../state";
+import { clearState, setState, subscribeToApp } from "../state";
 import { escapeHtml, type Lang, type Texts } from "../texts";
 
 const TRACK_RE = /^KZ-\d{4}-\d{3}$/;
@@ -56,5 +56,7 @@ export async function handleTrackInput(ctx: BotContext, text: string) {
     return ctx.reply(t.notFound, { reply_markup: notFoundKeyboard(t) });
   }
   await clearState(ctx.chat!.id);
+  // Подписываем на уведомления о смене этапа; сбой подписки не мешает показать статус.
+  await subscribeToApp(app.trackNumber, ctx.chat!.id).catch((e) => console.error("[bot] subscribe", e));
   await ctx.reply(formatApplication(t, ctx.lang, app), { parse_mode: "HTML" });
 }

@@ -79,6 +79,16 @@ const ru = {
   repAccepted: (id: string) => `Сигнал ${id} принят. Инспектор проверит его. Мы сообщим о результате здесь.`,
   hints: ["Заброшенный участок", "Свалка мусора", "Самозахват"],
 
+  // Смена этапа заявления инспектором (уведомление подписчикам трек-номера)
+  stageLabel: {
+    review: "На рассмотрении",
+    inspection: "Назначен выезд инспектора",
+    approved: "Одобрено",
+    rejected: "Отказ",
+  } satisfies Record<ApplicationStage, string>,
+  appChanged: (track: string, stage: string, note: string) =>
+    `Статус заявления ${track} изменён: ${stage}.${note ? ` ${note}` : ""}`,
+
   // Уведомления о смене статуса сигнала
   notify: {
     checking: (id: string) => `🔎 Ваш сигнал ${id} взят в проверку инспектором.`,
@@ -157,6 +167,15 @@ const kk: Texts = {
   repExpired: "Сеанс ескірді. Мәзір арқылы қайта бастаңыз.",
   repAccepted: (id: string) => `${id} сигналы қабылданды. Инспектор оны тексереді. Нәтижесі туралы осында хабарлаймыз.`,
   hints: ["Қараусыз қалған учаске", "Қоқыс үйіндісі", "Жерді өз бетінше басып алу"],
+
+  stageLabel: {
+    review: "Қаралуда",
+    inspection: "Инспектордың баруы тағайындалды",
+    approved: "Мақұлданды",
+    rejected: "Бас тартылды",
+  },
+  appChanged: (track: string, stage: string, note: string) =>
+    `${track} өтінішінің мәртебесі өзгертілді: ${stage}.${note ? ` ${note}` : ""}`,
 
   notify: {
     checking: (id: string) => `🔎 Сіздің ${id} сигналыңызды инспектор тексеруге алды.`,

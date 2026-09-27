@@ -95,6 +95,15 @@ export function canSignalTransition(from: SignalStatus, to: SignalStatus): boole
 
 // ---- Заявления ----
 
+export const APPLICATION_STAGES: ApplicationStage[] = ["review", "inspection", "approved", "rejected"];
+
+export const APPLICATION_STAGE_COLOR: Record<ApplicationStage, string> = {
+  review: "#2563eb",
+  inspection: "#ca8a04",
+  approved: "#16a34a",
+  rejected: "#dc2626",
+};
+
 export const APPLICATION_STAGE_LABEL: Record<ApplicationStage, string> = {
   review: "На рассмотрении",
   inspection: "Назначен выезд инспектора",
