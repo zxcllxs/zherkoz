@@ -1,5 +1,5 @@
-import { findTransition, PARCEL_STATUS_STYLE, VIOLATION_LABEL } from "./status";
-import { formatDate } from "./format";
+import { DEADLINE_STATUSES, findTransition, PARCEL_STATUS_STYLE, VIOLATION_LABEL } from "./status";
+import { formatDate, isoToDateInput } from "./format";
 import type { Parcel, ParcelStatus, ViolationType } from "./types";
 
 export interface ParcelTransitionInput {
@@ -42,4 +42,35 @@ export function applyTransition(
     ...(body.comment ? { comment: body.comment } : {}),
   });
   return { parcel: next };
+}
+
+/**
+ * Изменение контрольного срока без смены статуса (только «Нарушение выявлено» / «Устраняется»).
+ * Срок — не раньше сегодняшнего дня по времени Тараза и отличается от текущего.
+ */
+export function changeDeadline(
+  parcel: Parcel,
+  deadline: string,
+  now: number = Date.now(),
+): { parcel: Parcel } | { error: string; status: number } {
+  if (!DEADLINE_STATUSES.includes(parcel.status)) {
+    const label = PARCEL_STATUS_STYLE[parcel.status].label;
+    return { error: `Срок можно изменить только при нарушении; сейчас статус «${label}»`, status: 409 };
+  }
+  const ms = Date.parse(deadline);
+  if (Number.isNaN(ms)) return { error: "Некорректная дата", status: 400 };
+  const iso = new Date(ms).toISOString();
+  if (isoToDateInput(iso) < isoToDateInput(new Date(now).toISOString())) {
+    return { error: "Контрольный срок не может быть в прошлом", status: 400 };
+  }
+  if (parcel.deadline && isoToDateInput(parcel.deadline) === isoToDateInput(iso)) {
+    return { error: "Срок не изменился", status: 400 };
+  }
+  return {
+    parcel: {
+      ...parcel,
+      deadline: iso,
+      history: [...parcel.history, { at: new Date(now).toISOString(), action: `Контрольный срок изменён: до ${formatDate(iso)}` }],
+    },
+  };
 }

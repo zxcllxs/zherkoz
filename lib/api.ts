@@ -45,3 +45,11 @@ export const patchSignal = (id: string, body: SignalPatch) =>
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify(body),
   });
+
+/** Изменение контрольного срока без смены статуса. */
+export const patchParcelDeadline = (id: string, deadline: string) =>
+  request<{ parcel: Parcel }>(`/api/parcels/${encodeURIComponent(id)}`, {
+    method: "PATCH",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ deadline }),
+  });

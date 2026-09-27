@@ -26,6 +26,12 @@ export function dateInputPlusDays(days: number, now: number = Date.now()): strin
   return `${d.getUTCFullYear()}-${pad(d.getUTCMonth() + 1)}-${pad(d.getUTCDate())}`;
 }
 
+/** ISO → ГГГГ-ММ-ДД по времени Тараза (для input type=date). */
+export function isoToDateInput(iso: string): string {
+  const d = shifted(iso);
+  return `${d.getUTCFullYear()}-${pad(d.getUTCMonth() + 1)}-${pad(d.getUTCDate())}`;
+}
+
 /** ГГГГ-ММ-ДД → конец рабочего дня 18:00 по Таразу. */
 export function dateInputToIso(value: string): string {
   return `${value}T18:00:00+05:00`;

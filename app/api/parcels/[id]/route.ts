@@ -3,14 +3,15 @@ import { z } from "zod";
 import { getParcel, saveParcel } from "@/lib/redis";
 import { jsonError, serverError } from "@/lib/http";
 import { PARCEL_STATUSES } from "@/lib/status";
-import { applyTransition } from "@/lib/parcels";
+import { applyTransition, changeDeadline } from "@/lib/parcels";
 import type { ParcelStatus } from "@/lib/types";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
+// Два режима: { to, ... } — смена статуса; { deadline } без to — изменение контрольного срока.
 const Body = z.object({
-  to: z.enum(PARCEL_STATUSES as [ParcelStatus, ...ParcelStatus[]], { error: "Неизвестный статус" }),
+  to: z.enum(PARCEL_STATUSES as [ParcelStatus, ...ParcelStatus[]], { error: "Неизвестный статус" }).optional(),
   violationType: z.enum(["unused", "seizure", "dump"], { error: "Неизвестный тип нарушения" }).optional(),
   deadline: z
     .string()
@@ -34,7 +35,14 @@ export async function PATCH(req: Request, ctx: RouteContext<"/api/parcels/[id]">
   try {
     const parcel = await getParcel(id);
     if (!parcel) return jsonError("Участок не найден", 404);
-    const updated = applyTransition(parcel, body);
+    let updated;
+    if (body.to) {
+      updated = applyTransition(parcel, { ...body, to: body.to });
+    } else if (body.deadline) {
+      updated = changeDeadline(parcel, body.deadline);
+    } else {
+      return jsonError("Укажите новый статус (to) или контрольный срок (deadline)", 400);
+    }
     if ("error" in updated) return jsonError(updated.error, updated.status);
     await saveParcel(updated.parcel);
     return NextResponse.json({ parcel: updated.parcel });

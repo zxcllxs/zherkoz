@@ -1,13 +1,14 @@
 "use client";
 
 import { useRef, useState } from "react";
-import { patchParcel, uploadParcelPhoto } from "@/lib/api";
+import { patchParcel, patchParcelDeadline, uploadParcelPhoto } from "@/lib/api";
 import { compressImage } from "@/lib/image";
 import { deadlineText, formatDate, formatDateTime } from "@/lib/format";
-import { PARCEL_STATUS_STYLE, PARCEL_TRANSITIONS, VIOLATION_LABEL, isOverdue } from "@/lib/status";
+import { DEADLINE_STATUSES, PARCEL_STATUS_STYLE, PARCEL_TRANSITIONS, VIOLATION_LABEL, isOverdue } from "@/lib/status";
 import type { Parcel, ParcelStatus } from "@/lib/types";
 import { ParcelStatusBadge } from "./StatusBadge";
 import ViolationModal from "./ViolationModal";
+import DeadlineModal from "./DeadlineModal";
 import Lightbox from "./Lightbox";
 import { useToast } from "./Toasts";
 
@@ -35,12 +36,14 @@ export default function ParcelCard({
   const [busy, setBusy] = useState(false);
   const [uploading, setUploading] = useState(false);
   const [modal, setModal] = useState(false);
+  const [deadlineModal, setDeadlineModal] = useState(false);
   const [lightbox, setLightbox] = useState<string | null>(null);
   const fileRef = useRef<HTMLInputElement>(null);
 
   const st = PARCEL_STATUS_STYLE[parcel.status];
   const transitions = PARCEL_TRANSITIONS[parcel.status];
   const overdue = isOverdue(parcel, now);
+  const canChangeDeadline = DEADLINE_STATUSES.includes(parcel.status);
 
   const doTransition = async (to: ParcelStatus) => {
     if (to === "detected") return setModal(true);
@@ -138,6 +141,15 @@ export default function ParcelCard({
               {t.action}
             </button>
           ))}
+          {canChangeDeadline && (
+            <button
+              disabled={busy}
+              onClick={() => setDeadlineModal(true)}
+              className="rounded-lg border border-slate-300 bg-white px-4 py-2.5 text-left text-sm font-medium text-slate-800 shadow-sm hover:bg-slate-50 disabled:opacity-50"
+            >
+              📅 Изменить срок
+            </button>
+          )}
         </div>
       )}
 
@@ -198,6 +210,19 @@ export default function ParcelCard({
             onUpdated(p);
             setModal(false);
             toast("Нарушение зафиксировано", "success");
+          }}
+        />
+      )}
+      {deadlineModal && (
+        <DeadlineModal
+          cadastralNumber={parcel.cadastralNumber}
+          currentDeadline={parcel.deadline}
+          onClose={() => setDeadlineModal(false)}
+          onSubmit={async (deadline) => {
+            const { parcel: p } = await patchParcelDeadline(parcel.id, deadline);
+            onUpdated(p);
+            setDeadlineModal(false);
+            toast(`Контрольный срок изменён: до ${formatDate(p.deadline!)}`, "success");
           }}
         />
       )}
