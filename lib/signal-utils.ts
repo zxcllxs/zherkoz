@@ -1,11 +1,15 @@
 // Чистые хелперы сигналов (без Redis) — используются и на сервере, и в браузере.
 import { haversineKm } from "./geo";
-import type { Signal } from "./types";
+import type { Signal, SignalSource } from "./types";
 
 /** Радиус, в котором новый сигнал считается дублем активного (new/checking). */
 export const DUPLICATE_RADIUS_M = 50;
 
 // Дефолты для старых сигналов (seed и созданные до объединения дублей).
+export const signalSource = (s: { source?: SignalSource }): SignalSource => s.source ?? "citizen";
+
+export const SOURCE_LABEL: Record<SignalSource, string> = { citizen: "житель", satellite: "спутник" };
+
 export const signalReports = (s: { reports?: number }) => s.reports ?? 1;
 
 export function signalPhotoIds(s: { photoFileId?: string; photoFileIds?: string[] }): string[] {

@@ -14,6 +14,7 @@ import Legend from "./Legend";
 import BasemapSwitch, { type Basemap } from "./BasemapSwitch";
 import { S2_LATEST_YEAR, S2_MAX_NATIVE_ZOOM, s2AttributionHtml, s2TileUrl } from "@/lib/satellite";
 import type { RouteView } from "@/lib/route-plan";
+import { signalSource } from "@/lib/signal-utils";
 
 const BASEMAP_KEY = "zherkoz:basemap";
 const OSM_ATTRIBUTION = '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors';
@@ -98,6 +99,16 @@ function parcelStyle(p: Parcel, hovered: boolean, selected: boolean, overdue: bo
     // Просрочка — пунктир (важнее штрих-пунктира «устраняется»)
     dashArray: overdue ? "5 5" : st.dashArray,
   };
+}
+
+/** Маркер сигнала по спутниковым снимкам: 🛰 в круге цвета статуса. */
+function satelliteIcon(color: string, selected: boolean) {
+  return divIcon({
+    className: "",
+    html: `<div style="width:30px;height:30px;border-radius:9999px;background:#fff;border:3px solid ${selected ? "#1e3a8a" : color};font-size:16px;line-height:24px;text-align:center;box-shadow:0 1px 4px rgba(0,0,0,.4)">🛰</div>`,
+    iconSize: [30, 30],
+    iconAnchor: [15, 15],
+  });
 }
 
 /** Нумерованный маркер точки маршрута (HTML-иконка, без картинок). */
@@ -206,6 +217,21 @@ export default function ParcelMap(props: MapProps) {
           {signals.map((s) => {
             const st = SIGNAL_STATUS_STYLE[s.status];
             const selected = s.id === selectedSignalId;
+            if (signalSource(s) === "satellite") {
+              return (
+                <Marker
+                  key={`${s.id}-${s.status}-${selected}`}
+                  position={signalToLeaflet(s)}
+                  icon={satelliteIcon(st.color, selected)}
+                  pane="signals"
+                  eventHandlers={{ click: () => onSelectSignal(s.id) }}
+                >
+                  <Tooltip>
+                    {s.id} · {st.label} · источник: спутник
+                  </Tooltip>
+                </Marker>
+              );
+            }
             return (
               <CircleMarker
                 key={`${s.id}-${s.status}`}

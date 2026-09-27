@@ -75,3 +75,8 @@ export const importGeoJSON = (collection: unknown, dryRun: boolean) =>
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify(collection),
   });
+
+export const flagSatellite = (parcelId: string) =>
+  request<{ signal: PublicSignal; parcel: Parcel }>(`/api/parcels/${encodeURIComponent(parcelId)}/satellite`, {
+    method: "POST",
+  });

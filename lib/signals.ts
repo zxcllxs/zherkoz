@@ -1,8 +1,8 @@
 import { getAllParcels, getAllSignals, getRedis, KEYS, saveParcel, saveSignal } from "./redis";
-import { findParcelAt } from "./geo";
-import { findDuplicate, signalPhotoIds, signalRecipients, signalReports } from "./signal-utils";
+import { findParcelAt, parcelCenter } from "./geo";
+import { findDuplicate, signalPhotoIds, signalRecipients, signalReports, signalSource } from "./signal-utils";
 import { applyTransition } from "./parcels";
-import type { PublicSignal, Signal } from "./types";
+import type { Parcel, PublicSignal, Signal } from "./types";
 
 export { signalPhotoIds, signalRecipients, signalReports } from "./signal-utils";
 
@@ -74,4 +74,48 @@ export async function createSignalFromBot(input: {
     }
   }
   return { signal, merged: false };
+}
+
+export const SATELLITE_SIGNAL_TEXT = "Признаки неиспользования по спутниковым снимкам 2018–2025 (отметка инспектора)";
+
+/**
+ * Отметка инспектора по спутниковым снимкам: сигнал source=satellite (chatId 0, без фото) в центроиде участка.
+ * Участок clean/resolved переводится в check. Повторная активная отметка по тому же участку не создаётся.
+ */
+export async function createSatelliteSignal(
+  parcel: Parcel,
+): Promise<{ signal: Signal; parcel: Parcel } | { error: string; status: number }> {
+  const active = (await getAllSignals()).find(
+    (s) => s.parcelId === parcel.id && signalSource(s) === "satellite" && (s.status === "new" || s.status === "checking"),
+  );
+  if (active) return { error: `По участку уже есть активная спутниковая отметка ${active.id}`, status: 409 };
+
+  const id = formatSignalId(await getRedis().incr(KEYS.signalSeq));
+  const [lat, lng] = parcelCenter(parcel);
+  const signal: Signal = {
+    id,
+    chatId: 0,
+    lat,
+    lng,
+    text: SATELLITE_SIGNAL_TEXT,
+    parcelId: parcel.id,
+    status: "new",
+    createdAt: new Date().toISOString(),
+    source: "satellite",
+    reports: 1,
+    subscribers: [],
+    photoFileIds: [],
+  };
+  await saveSignal(signal);
+
+  const action = `Отметка инспектора: признаки неиспользования по спутниковым снимкам 2018–2025 (сигнал ${id})`;
+  let updated: Parcel;
+  if (parcel.status === "clean" || parcel.status === "resolved") {
+    const res = applyTransition(parcel, { to: "check" }, action);
+    updated = "parcel" in res ? res.parcel : parcel;
+  } else {
+    updated = { ...parcel, history: [...parcel.history, { at: signal.createdAt, action }] };
+  }
+  await saveParcel(updated);
+  return { signal, parcel: updated };
 }

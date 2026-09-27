@@ -6,7 +6,7 @@ import { formatDateTime } from "@/lib/format";
 import { PARCEL_STATUS_STYLE, SIGNAL_STATUS_STYLE } from "@/lib/status";
 import type { Parcel, ParcelStatus, PublicSignal } from "@/lib/types";
 import { ReportsBadge, SignalStatusBadge } from "./StatusBadge";
-import { signalPhotoIds } from "@/lib/signal-utils";
+import { SOURCE_LABEL, signalPhotoIds, signalSource } from "@/lib/signal-utils";
 import ViolationModal from "./ViolationModal";
 import RejectModal from "./RejectModal";
 import Lightbox from "./Lightbox";
@@ -68,7 +68,9 @@ export default function SignalCard({
       </button>
 
       <div>
-        <div className="text-xs uppercase tracking-wide text-slate-500">Сигнал жителя</div>
+        <div className="text-xs uppercase tracking-wide text-slate-500">
+          {signalSource(signal) === "satellite" ? "🛰 Сигнал по снимкам" : "Сигнал жителя"}
+        </div>
         <div className="font-mono text-lg font-semibold text-slate-900">{signal.id}</div>
         <div className="mt-2 flex flex-wrap items-center gap-2">
           <SignalStatusBadge status={signal.status} />
@@ -81,7 +83,7 @@ export default function SignalCard({
 
       {photoUrls.length === 0 ? (
         <div className="flex h-32 items-center justify-center rounded-lg border border-dashed border-slate-300 bg-slate-50 text-sm text-slate-500">
-          фото не приложено
+          {signalSource(signal) === "satellite" ? "🛰 Снимки Sentinel-2 — в «Спутниковой истории» участка" : "фото не приложено"}
         </div>
       ) : (
         <div className={photoUrls.length > 1 ? "grid grid-cols-2 gap-2" : ""}>
@@ -111,6 +113,11 @@ export default function SignalCard({
       <dl className="grid grid-cols-[auto_1fr] gap-x-3 gap-y-1.5 text-sm">
         <dt className="text-slate-500">Описание</dt>
         <dd className="whitespace-pre-wrap text-slate-900">{signal.text}</dd>
+        <dt className="text-slate-500">Источник</dt>
+        <dd className="text-slate-900">
+          {signalSource(signal) === "satellite" ? "🛰 " : ""}
+          {SOURCE_LABEL[signalSource(signal)]}
+        </dd>
         <dt className="text-slate-500">Поступил</dt>
         <dd className="text-slate-900">{formatDateTime(signal.createdAt)}</dd>
         <dt className="text-slate-500">Участок</dt>

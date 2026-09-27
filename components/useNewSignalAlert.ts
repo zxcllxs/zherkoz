@@ -34,9 +34,11 @@ export function useNewSignalAlert(signals: PublicSignal[] | null, onNew: (s: Pub
       known.current = new Set(signals.map((s) => s.id));
       return;
     }
-    const fresh = signals.filter((s) => !known.current!.has(s.id));
+    const unseen = signals.filter((s) => !known.current!.has(s.id));
+    for (const s of unseen) known.current.add(s.id);
+    // Спутниковые отметки ставит сам инспектор — не звеним.
+    const fresh = unseen.filter((s) => s.source !== "satellite");
     if (fresh.length === 0) return;
-    for (const s of fresh) known.current.add(s.id);
     for (const s of [...fresh].reverse()) onNew(s);
     beep();
   }, [signals, onNew]);

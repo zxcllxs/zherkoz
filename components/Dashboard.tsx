@@ -4,7 +4,8 @@ import dynamic from "next/dynamic";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { parcelCenter, signalToLeaflet } from "@/lib/geo";
 import { PARCEL_STATUSES, isOverdue } from "@/lib/status";
-import type { Application, Parcel, PublicSignal } from "@/lib/types";
+import type { Application, Parcel, PublicSignal, SignalSource } from "@/lib/types";
+import { signalSource } from "@/lib/signal-utils";
 import type { MapFocus } from "./Map";
 import { usePolling } from "./usePolling";
 import { useNewSignalAlert } from "./useNewSignalAlert";
@@ -54,6 +55,7 @@ function DashboardInner() {
   const [filter, setFilter] = useState<ParcelFilter>(EMPTY_FILTER);
   const [activeCounter, setActiveCounter] = useState<CounterKey | null>(null);
   const [newSignalsOnly, setNewSignalsOnly] = useState(false);
+  const [sourceFilter, setSourceFilter] = useState<"all" | SignalSource>("all");
   // Мобильная раскладка: нижняя панель (<768px) и сворачиваемая шапка (<1024px). На десктопе не влияют.
   const [sheetOpen, setSheetOpen] = useState(false);
   const [headerOpen, setHeaderOpen] = useState(false);
@@ -83,13 +85,17 @@ function DashboardInner() {
   const overdueOf = useCallback((p: Parcel) => isOverdue(p, now), [now]);
   const filteredParcels = useMemo(() => applyFilter(parcels, filter, overdueOf), [parcels, filter, overdueOf]);
   // Список сигналов — по приоритету плана выезда (выше — раньше), при равенстве — новее выше.
+  const sourceSignals = useMemo(
+    () => (sourceFilter === "all" ? signals : signals.filter((s) => signalSource(s) === sourceFilter)),
+    [signals, sourceFilter],
+  );
   const visibleSignals = useMemo(() => {
-    const list = newSignalsOnly ? signals.filter((s) => s.status === "new") : signals;
+    const list = newSignalsOnly ? sourceSignals.filter((s) => s.status === "new") : sourceSignals;
     const prio = new Map(list.map((s) => [s.id, signalPriority(s, parcels, now)]));
     return [...list].sort(
       (a, b) => prio.get(b.id)! - prio.get(a.id)! || Date.parse(b.createdAt) - Date.parse(a.createdAt),
     );
-  }, [signals, parcels, now, newSignalsOnly]);
+  }, [sourceSignals, parcels, now, newSignalsOnly]);
 
   const counts = useMemo(
     () => ({
@@ -200,6 +206,11 @@ function DashboardInner() {
     else selectParcel(st.id);
     setFocus({ center: [st.lat, st.lng], zoom: 17, key: Date.now() });
   };
+
+  const onSignalCreated = useCallback(
+    (sig: PublicSignal) => mutate((s) => ({ ...s, signals: [sig, ...s.signals.filter((x) => x.id !== sig.id)] })),
+    [mutate],
+  );
 
   const onParcelsImported = useCallback(
     (added: Parcel[]) => mutate((s) => ({ ...s, parcels: [...s.parcels, ...added] })),
@@ -331,6 +342,7 @@ function DashboardInner() {
                   now={now}
                   onBack={() => setSelectedParcelId(null)}
                   onUpdated={onParcelUpdated}
+                  onSignalCreated={onSignalCreated}
                 />
               ) : (
                 <>
@@ -399,6 +411,26 @@ function DashboardInner() {
                   />
                   Только новые
                 </label>
+                <div className="flex gap-1 border-b border-slate-100 px-4 py-2" role="group" aria-label="Источник сигнала">
+                  {(
+                    [
+                      ["all", "Все"],
+                      ["citizen", "Жители"],
+                      ["satellite", "🛰 Спутник"],
+                    ] as const
+                  ).map(([v, label]) => (
+                    <button
+                      key={v}
+                      onClick={() => setSourceFilter(v)}
+                      aria-pressed={sourceFilter === v}
+                      className={`min-h-9 flex-1 rounded-md px-2 text-xs font-medium ${
+                        sourceFilter === v ? "bg-slate-800 text-white" : "bg-slate-100 text-slate-700 hover:bg-slate-200"
+                      }`}
+                    >
+                      {label}
+                    </button>
+                  ))}
+                </div>
                 <SignalList signals={visibleSignals} onSelect={(id) => selectSignal(id, true)} />
               </>
             )}
@@ -407,7 +439,7 @@ function DashboardInner() {
         <section className="absolute inset-x-0 top-0 bottom-[var(--sheet-peek)] md:relative md:inset-auto md:min-w-0 md:flex-1">
           <ParcelMap
             parcels={filteredParcels}
-            signals={signals}
+            signals={sourceSignals}
             selectedParcelId={selectedParcelId}
             selectedSignalId={selectedSignalId}
             focus={focus}

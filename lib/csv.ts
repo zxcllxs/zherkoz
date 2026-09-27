@@ -2,7 +2,7 @@
 import { deadlineText, formatDate, formatDateTime } from "./format";
 import { PARCEL_STATUS_STYLE, SIGNAL_STATUS_STYLE, VIOLATION_LABEL, isOverdue } from "./status";
 import type { Parcel, PublicSignal } from "./types";
-import { signalPhotoIds, signalReports } from "./signal-utils";
+import { SOURCE_LABEL, signalPhotoIds, signalReports, signalSource } from "./signal-utils";
 
 const BOM = "﻿";
 const SEP = ";";
@@ -39,10 +39,11 @@ export function parcelsCsv(parcels: Parcel[], now: number): string {
 export function signalsCsv(signals: PublicSignal[], parcels: Parcel[]): string {
   const cadastral = new Map(parcels.map((p) => [p.id, p.cadastralNumber]));
   return toCsv(
-    ["Номер", "Поступил", "Статус", "Описание", "Участок", "Широта", "Долгота", "Фото", "Сообщили жителей", "Комментарий инспектора"],
+    ["Номер", "Поступил", "Источник", "Статус", "Описание", "Участок", "Широта", "Долгота", "Фото", "Сообщили жителей", "Комментарий инспектора"],
     signals.map((s) => [
       s.id,
       formatDateTime(s.createdAt),
+      SOURCE_LABEL[signalSource(s)],
       SIGNAL_STATUS_STYLE[s.status].label,
       s.text,
       s.parcelId ? (cadastral.get(s.parcelId) ?? s.parcelId) : "вне зарегистрированных участков",

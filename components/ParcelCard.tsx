@@ -1,16 +1,20 @@
 "use client";
 
+import dynamic from "next/dynamic";
 import { useRef, useState } from "react";
-import { patchParcel, patchParcelDeadline, uploadParcelPhoto } from "@/lib/api";
+import { flagSatellite, patchParcel, patchParcelDeadline, uploadParcelPhoto } from "@/lib/api";
 import { compressImage } from "@/lib/image";
 import { deadlineText, formatDate, formatDateTime } from "@/lib/format";
 import { DEADLINE_STATUSES, PARCEL_STATUS_STYLE, PARCEL_TRANSITIONS, VIOLATION_LABEL, isOverdue } from "@/lib/status";
-import type { Parcel, ParcelStatus } from "@/lib/types";
+import type { Parcel, ParcelStatus, PublicSignal } from "@/lib/types";
 import { ParcelStatusBadge } from "./StatusBadge";
 import ViolationModal from "./ViolationModal";
 import DeadlineModal from "./DeadlineModal";
 import Lightbox from "./Lightbox";
 import { useToast } from "./Toasts";
+
+// Мини-карты Leaflet — только на клиенте.
+const SatelliteHistoryModal = dynamic(() => import("./SatelliteHistoryModal"), { ssr: false });
 
 const BUTTON_STYLE: Partial<Record<ParcelStatus, string>> = {
   detected: "bg-red-600 hover:bg-red-700 text-white",
@@ -26,17 +30,20 @@ export default function ParcelCard({
   now,
   onBack,
   onUpdated,
+  onSignalCreated,
 }: {
   parcel: Parcel;
   now: number;
   onBack: () => void;
   onUpdated: (p: Parcel) => void;
+  onSignalCreated?: (s: PublicSignal, p: Parcel) => void;
 }) {
   const toast = useToast();
   const [busy, setBusy] = useState(false);
   const [uploading, setUploading] = useState(false);
   const [modal, setModal] = useState(false);
   const [deadlineModal, setDeadlineModal] = useState(false);
+  const [satModal, setSatModal] = useState(false);
   const [lightbox, setLightbox] = useState<string | null>(null);
   const fileRef = useRef<HTMLInputElement>(null);
 
@@ -153,6 +160,16 @@ export default function ParcelCard({
         </div>
       )}
 
+      <div className="flex flex-col gap-2">
+        <div className="text-xs font-semibold uppercase tracking-wide text-slate-500">Снимки и документы</div>
+        <button
+          onClick={() => setSatModal(true)}
+          className="min-h-11 rounded-lg border border-slate-300 bg-white px-4 py-2.5 text-left text-sm font-medium text-slate-800 shadow-sm hover:bg-slate-50"
+        >
+          🛰 Спутниковая история
+        </button>
+      </div>
+
       <div>
         <div className="mb-2 flex items-center justify-between">
           <div className="text-xs font-semibold uppercase tracking-wide text-slate-500">
@@ -207,6 +224,19 @@ export default function ParcelCard({
             onUpdated(p);
             setModal(false);
             toast("Нарушение зафиксировано", "success");
+          }}
+        />
+      )}
+      {satModal && (
+        <SatelliteHistoryModal
+          parcel={parcel}
+          onClose={() => setSatModal(false)}
+          onFlag={async () => {
+            const res = await flagSatellite(parcel.id);
+            onUpdated(res.parcel);
+            onSignalCreated?.(res.signal, res.parcel);
+            setSatModal(false);
+            toast(`Создан сигнал ${res.signal.id} (источник: спутник)`, "success");
           }}
         />
       )}

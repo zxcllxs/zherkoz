@@ -65,7 +65,11 @@ export interface Signal {
   subscribers?: number[];
   /** Все фото сигнала (по умолчанию — [photoFileId]). */
   photoFileIds?: string[];
+  /** Источник: житель через бот или отметка инспектора по спутниковым снимкам. Нет поля = "citizen". */
+  source?: SignalSource;
 }
+
+export type SignalSource = "citizen" | "satellite";
 
 export interface Application {
   trackNumber: string;

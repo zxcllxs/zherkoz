@@ -3,6 +3,7 @@
 import { formatDateTime } from "@/lib/format";
 import type { PublicSignal } from "@/lib/types";
 import { ReportsBadge, SignalStatusBadge } from "./StatusBadge";
+import { SOURCE_LABEL, signalSource } from "@/lib/signal-utils";
 
 export default function SignalList({
   signals,
@@ -26,6 +27,9 @@ export default function SignalList({
             <div className="line-clamp-2 text-sm text-slate-700">{s.text}</div>
             <div className="mt-1 flex flex-wrap items-center gap-2 text-xs text-slate-500">
               {formatDateTime(s.createdAt)}
+              <span>
+                · {signalSource(s) === "satellite" ? "🛰 " : ""}источник: {SOURCE_LABEL[signalSource(s)]}
+              </span>
               <ReportsBadge reports={s.reports} />
             </div>
           </button>
