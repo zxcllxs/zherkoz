@@ -1,5 +1,6 @@
 // Ручной конечный автомат диалога: ключ bot:state:{chatId}, TTL 1800 с.
 import { getRedis, KEYS } from "@/lib/redis";
+import type { Lang } from "./texts";
 
 const TTL_SECONDS = 1800;
 
@@ -20,4 +21,14 @@ export async function setState(chatId: number, state: BotState): Promise<void> {
 
 export async function clearState(chatId: number): Promise<void> {
   await getRedis().del(KEYS.botState(chatId));
+}
+
+// Язык жителя: bot:lang:{chatId}, без TTL.
+export async function getLang(chatId: number): Promise<Lang | null> {
+  const v = await getRedis().get<string>(KEYS.botLang(chatId));
+  return v === "ru" || v === "kk" ? v : null;
+}
+
+export async function setLang(chatId: number, lang: Lang): Promise<void> {
+  await getRedis().set(KEYS.botLang(chatId), lang);
 }

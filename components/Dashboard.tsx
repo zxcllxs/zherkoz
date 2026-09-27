@@ -9,6 +9,7 @@ import type { MapFocus } from "./Map";
 import { usePolling } from "./usePolling";
 import { useNewSignalAlert } from "./useNewSignalAlert";
 import { ToastProvider, useToast } from "./Toasts";
+import ExportMenu from "./ExportMenu";
 import Counters, { type CounterItem, type CounterKey } from "./Counters";
 import Filters, { EMPTY_FILTER, applyFilter, type ParcelFilter } from "./Filters";
 import ParcelCard from "./ParcelCard";
@@ -161,7 +162,12 @@ function DashboardInner() {
             Демо: тестовые данные
           </span>
         </div>
-        {state && <Counters items={counterItems} active={activeCounter} onClick={onCounter} />}
+        {state && (
+          <div className="flex flex-wrap items-center gap-2">
+            <Counters items={counterItems} active={activeCounter} onClick={onCounter} />
+            <ExportMenu parcels={parcels} signals={signals} now={now} />
+          </div>
+        )}
       </header>
 
       <main className="flex min-h-0 flex-1">

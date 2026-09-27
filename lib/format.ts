@@ -31,9 +31,17 @@ export function dateInputToIso(value: string): string {
   return `${value}T18:00:00+05:00`;
 }
 
-/** «осталось N дн.» / «просрочено на N дн.» */
+/** Номер календарного дня по времени Тараза. */
+function dayIndex(ms: number): number {
+  return Math.floor((ms + OFFSET_MS) / DAY_MS);
+}
+
+/** «осталось N дн.» / «просрочено на N дн.» — в календарных днях по времени Тараза. */
 export function deadlineText(deadlineIso: string, now: number = Date.now()): { text: string; overdue: boolean } {
-  const diff = new Date(deadlineIso).getTime() - now;
-  if (diff >= 0) return { text: `осталось ${Math.ceil(diff / DAY_MS)} дн.`, overdue: false };
-  return { text: `просрочено на ${Math.ceil(-diff / DAY_MS)} дн.`, overdue: true };
+  const deadline = new Date(deadlineIso).getTime();
+  const days = dayIndex(deadline) - dayIndex(now);
+  if (deadline >= now) {
+    return { text: days === 0 ? "срок истекает сегодня" : `осталось ${days} дн.`, overdue: false };
+  }
+  return { text: days === 0 ? "срок истёк сегодня" : `просрочено на ${-days} дн.`, overdue: true };
 }

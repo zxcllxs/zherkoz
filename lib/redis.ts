@@ -7,6 +7,7 @@ export const KEYS = {
   apps: "apps",
   signalSeq: "signal:seq",
   botState: (chatId: number) => `bot:state:${chatId}`,
+  botLang: (chatId: number) => `bot:lang:${chatId}`,
 } as const;
 
 let client: Redis | null = null;

@@ -1,11 +1,11 @@
-import type { Context } from "grammy";
 import { getApplication } from "@/lib/redis";
 import { formatDateTime } from "@/lib/format";
 import { procedureLabel } from "@/lib/status";
 import type { Application } from "@/lib/types";
+import { tx, type BotContext } from "../context";
 import { askTrackKeyboard, notFoundKeyboard } from "../keyboards";
 import { clearState, setState } from "../state";
-import { T, escapeHtml } from "../texts";
+import { escapeHtml, type Texts } from "../texts";
 
 const TRACK_RE = /^KZ-\d{4}-\d{3}$/;
 export const EXAMPLE_TRACK = "KZ-2026-042";
@@ -14,55 +14,47 @@ export function normalizeTrack(input: string): string {
   return input.trim().toUpperCase().replace(/[‐-―−]/g, "-").replace(/\s+/g, "");
 }
 
-function pipeline(app: Application): string {
-  switch (app.stage) {
-    case "review":
-      return "✅ Подано → 🔵 На рассмотрении → ⚪ Выезд инспектора → ⚪ Решение";
-    case "inspection":
-      return "✅ Подано → ✅ На рассмотрении → 🔵 Выезд инспектора → ⚪ Решение";
-    case "approved":
-      return "✅ Подано → ✅ На рассмотрении → ✅ Выезд инспектора → ✅ Решение: одобрено";
-    case "rejected":
-      return "✅ Подано → ✅ На рассмотрении → ❌ Решение: отказ";
-  }
-}
-
-export function formatApplication(app: Application): string {
+export function formatApplication(t: Texts, app: Application): string {
   const lines = [
-    `<b>Заявление ${escapeHtml(app.trackNumber)}</b>`,
-    `Процедура: ${escapeHtml(procedureLabel(app.procedure))}`,
-    pipeline(app),
+    `<b>${t.appTitle} ${escapeHtml(app.trackNumber)}</b>`,
+    `${t.appProcedure}: ${escapeHtml(procedureLabel(app.procedure))}`,
+    t.pipeline[app.stage],
   ];
   if (app.stage === "rejected") {
-    lines.push(`❌ <b>Пояснение:</b> ${escapeHtml(app.stageNote || "причина не указана")}`);
+    lines.push(`❌ <b>${t.appNote}:</b> ${escapeHtml(app.stageNote || t.appNoReason)}`);
   } else if (app.stageNote) {
-    lines.push(`Пояснение: ${escapeHtml(app.stageNote)}`);
+    lines.push(`${t.appNote}: ${escapeHtml(app.stageNote)}`);
   }
-  lines.push(`Обновлено: ${formatDateTime(app.updatedAt)}`);
+  lines.push(`${t.appUpdated}: ${formatDateTime(app.updatedAt)}`);
+  // Данные заявлений в реестре — только на русском.
+  if (t.dataInRussian) lines.push("", `<i>${t.dataInRussian}</i>`);
   return lines.join("\n");
 }
 
-export async function askTrack(ctx: Context) {
+export async function askTrack(ctx: BotContext) {
+  const t = tx(ctx);
   await setState(ctx.chat!.id, { step: "await_track" });
-  await ctx.reply(T.askTrack, { parse_mode: "HTML", reply_markup: askTrackKeyboard() });
+  await ctx.reply(t.askTrack, { parse_mode: "HTML", reply_markup: askTrackKeyboard(t) });
 }
 
-export async function showExample(ctx: Context) {
+export async function showExample(ctx: BotContext) {
+  const t = tx(ctx);
   const app = await getApplication(EXAMPLE_TRACK);
-  if (!app) return ctx.reply(T.askTrack, { parse_mode: "HTML" });
-  await ctx.reply(`${T.exampleHeader}\n\n${formatApplication(app)}`, { parse_mode: "HTML" });
+  if (!app) return ctx.reply(t.askTrack, { parse_mode: "HTML" });
+  await ctx.reply(`${t.exampleHeader}\n\n${formatApplication(t, app)}`, { parse_mode: "HTML" });
 }
 
 /** Обработка введённого трек-номера (состояние await_track). */
-export async function handleTrackInput(ctx: Context, text: string) {
+export async function handleTrackInput(ctx: BotContext, text: string) {
+  const t = tx(ctx);
   const track = normalizeTrack(text);
   if (!TRACK_RE.test(track)) {
-    return ctx.reply(T.badTrack, { parse_mode: "HTML" });
+    return ctx.reply(t.badTrack, { parse_mode: "HTML" });
   }
   const app = await getApplication(track);
   if (!app) {
-    return ctx.reply(T.notFound, { reply_markup: notFoundKeyboard() });
+    return ctx.reply(t.notFound, { reply_markup: notFoundKeyboard(t) });
   }
   await clearState(ctx.chat!.id);
-  await ctx.reply(formatApplication(app), { parse_mode: "HTML" });
+  await ctx.reply(formatApplication(t, app), { parse_mode: "HTML" });
 }
