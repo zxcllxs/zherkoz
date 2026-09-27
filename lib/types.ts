@@ -59,6 +59,8 @@ export interface Signal {
   photoFileId?: string;
   inspectorNote?: string;
   isDemoSeed?: boolean;
+  /** Сколько жителей сообщили об этом месте (по умолчанию 1). */
+  reports?: number;
 }
 
 export interface Application {

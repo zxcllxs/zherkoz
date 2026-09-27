@@ -19,6 +19,8 @@ import SignalList from "./SignalList";
 import AppList from "./AppList";
 import AppCard from "./AppCard";
 import GeoJsonTools from "./GeoJsonTools";
+import RoutePlanPanel from "./RoutePlanPanel";
+import { buildRoutePlan, TARAZ_CENTER, type LatLng, type PlannedStop, type RoutePlan } from "@/lib/route-plan";
 
 const ParcelMap = dynamic(() => import("./Map"), {
   ssr: false,
@@ -30,7 +32,7 @@ const ParcelMap = dynamic(() => import("./Map"), {
   ),
 });
 
-type Tab = "parcels" | "signals" | "apps";
+type Tab = "parcels" | "signals" | "apps" | "plan";
 
 export default function Dashboard() {
   return (
@@ -56,6 +58,8 @@ function DashboardInner() {
   const [sheetOpen, setSheetOpen] = useState(false);
   const [headerOpen, setHeaderOpen] = useState(false);
   const sidebarScroll = useRef<HTMLDivElement>(null);
+  const [plan, setPlan] = useState<RoutePlan | null>(null);
+  const [planning, setPlanning] = useState(false);
 
   const parcels = useMemo(() => state?.parcels ?? [], [state]);
   const signals = useMemo(() => state?.signals ?? [], [state]);
@@ -158,6 +162,35 @@ function DashboardInner() {
     [mutate],
   );
 
+  // План выезда: старт — геолокация браузера (если разрешена) или центр Тараза.
+  const makePlan = async () => {
+    if (!state) return;
+    setPlanning(true);
+    const pos = await new Promise<LatLng | null>((resolve) => {
+      if (!("geolocation" in navigator)) return resolve(null);
+      navigator.geolocation.getCurrentPosition(
+        (p) => resolve({ lat: p.coords.latitude, lng: p.coords.longitude }),
+        () => resolve(null),
+        { timeout: 5000, maximumAge: 60000 },
+      );
+    });
+    const p = buildRoutePlan(parcels, signals, now, pos ?? TARAZ_CENTER, pos ? "моё местоположение" : "центр Тараза");
+    setPlan(p);
+    setPlanning(false);
+    setTab("plan");
+    setSheetOpen(true);
+    setHeaderOpen(false);
+    setSelectedParcelId(null);
+    setSelectedSignalId(null);
+    if (p.stops.length === 0) toast("Сейчас нет точек для выезда", "info");
+  };
+
+  const onSelectStop = (st: PlannedStop) => {
+    if (st.kind === "signal") selectSignal(st.id);
+    else selectParcel(st.id);
+    setFocus({ center: [st.lat, st.lng], zoom: 17, key: Date.now() });
+  };
+
   const onParcelsImported = useCallback(
     (added: Parcel[]) => mutate((s) => ({ ...s, parcels: [...s.parcels, ...added] })),
     [mutate],
@@ -211,6 +244,13 @@ function DashboardInner() {
         {state && (
           <div className={`${headerOpen ? "flex" : "hidden"} w-full flex-wrap items-center gap-2 lg:flex lg:w-auto`}>
             <Counters items={counterItems} active={activeCounter} onClick={onCounter} />
+            <button
+              onClick={makePlan}
+              disabled={planning}
+              className="rounded-lg border border-blue-300 bg-blue-50 px-3 py-1.5 text-sm font-medium text-blue-800 hover:bg-blue-100 disabled:opacity-50"
+            >
+              {planning ? "Строю маршрут…" : "🚗 План выезда"}
+            </button>
             <ExportMenu parcels={parcels} signals={signals} now={now} />
           </div>
         )}
@@ -248,6 +288,11 @@ function DashboardInner() {
             <button className={tabBtn("apps")} onClick={() => setTab("apps")}>
               Заявления
             </button>
+            {plan && (
+              <button className={tabBtn("plan")} onClick={() => setTab("plan")}>
+                План
+              </button>
+            )}
           </div>
           <div ref={sidebarScroll} className="min-h-0 flex-1 overflow-y-auto">
             {!state ? (
@@ -300,6 +345,15 @@ function DashboardInner() {
                   <ParcelList parcels={filteredParcels} now={now} onSelect={(id) => selectParcel(id, true)} />
                 </>
               )
+            ) : tab === "plan" && plan ? (
+              <RoutePlanPanel
+                plan={plan}
+                onSelectStop={onSelectStop}
+                onReset={() => {
+                  setPlan(null);
+                  setTab("parcels");
+                }}
+              />
             ) : tab === "apps" ? (
               selectedApp ? (
                 <AppCard
@@ -346,6 +400,7 @@ function DashboardInner() {
             selectedSignalId={selectedSignalId}
             focus={focus}
             now={now}
+            route={plan}
             onSelectParcel={(id) => selectParcel(id)}
             onSelectSignal={(id) => selectSignal(id)}
           />

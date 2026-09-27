@@ -4,7 +4,8 @@ import "leaflet/dist/leaflet.css";
 import "leaflet-defaulticon-compatibility/dist/leaflet-defaulticon-compatibility.css";
 import "leaflet-defaulticon-compatibility";
 import { useCallback, useEffect, useState } from "react";
-import { CircleMarker, MapContainer, Pane, Polygon, TileLayer, Tooltip, useMap, useMapEvents } from "react-leaflet";
+import { CircleMarker, MapContainer, Marker, Pane, Polygon, Polyline, TileLayer, Tooltip, useMap, useMapEvents } from "react-leaflet";
+import { divIcon } from "leaflet";
 import type { PathOptions } from "leaflet";
 import { dataBounds, parcelCenter, polygonToLeaflet, signalToLeaflet, type LatLngTuple } from "@/lib/geo";
 import { PARCEL_STATUS_STYLE, SIGNAL_STATUS_STYLE, isOverdue } from "@/lib/status";
@@ -13,6 +14,7 @@ import Legend from "./Legend";
 import BasemapSwitch, { type Basemap } from "./BasemapSwitch";
 import { useToast } from "./Toasts";
 import type { SatelliteLayer } from "@/lib/wmts";
+import type { RoutePlan } from "@/lib/route-plan";
 
 const BASEMAP_KEY = "zherkoz:basemap";
 const OSM_ATTRIBUTION = '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors';
@@ -33,6 +35,7 @@ export interface MapProps {
   selectedSignalId: string | null;
   focus: MapFocus | null;
   now: number;
+  route: RoutePlan | null;
   onSelectParcel: (id: string) => void;
   onSelectSignal: (id: string) => void;
 }
@@ -58,6 +61,17 @@ function SizeWatcher() {
     ro.observe(map.getContainer());
     return () => ro.disconnect();
   }, [map]);
+  return null;
+}
+
+/** Новый план выезда — показать весь маршрут. */
+function FitRoute({ route }: { route: RoutePlan | null }) {
+  const map = useMap();
+  useEffect(() => {
+    if (!route || route.stops.length === 0) return;
+    const pts = [route.start, ...route.stops].map((p) => [p.lat, p.lng] as [number, number]);
+    map.fitBounds(pts, { padding: [40, 40], maxZoom: 16 });
+  }, [route, map]);
   return null;
 }
 
@@ -87,8 +101,18 @@ function parcelStyle(p: Parcel, hovered: boolean, selected: boolean, overdue: bo
   };
 }
 
+/** Нумерованный маркер точки маршрута (HTML-иконка, без картинок). */
+function routeIcon(label: string, color: string) {
+  return divIcon({
+    className: "",
+    html: `<div style="width:28px;height:28px;border-radius:9999px;background:${color};color:#fff;font:700 13px/28px system-ui,sans-serif;text-align:center;border:2px solid #fff;box-shadow:0 1px 4px rgba(0,0,0,.4)">${label}</div>`,
+    iconSize: [28, 28],
+    iconAnchor: [14, 14],
+  });
+}
+
 export default function ParcelMap(props: MapProps) {
-  const { parcels, signals, selectedParcelId, selectedSignalId, focus, now, onSelectParcel, onSelectSignal } = props;
+  const { parcels, signals, selectedParcelId, selectedSignalId, focus, now, route, onSelectParcel, onSelectSignal } = props;
   const [hovered, setHovered] = useState<string | null>(null);
   const [zoom, setZoom] = useState(13);
   const toast = useToast();
@@ -151,6 +175,7 @@ export default function ParcelMap(props: MapProps) {
         <FlyTo focus={focus} />
         <ZoomWatcher onZoom={setZoom} />
         <SizeWatcher />
+        <FitRoute route={route} />
         {parcels.map((p) => (
           <Polygon
             key={p.id}
@@ -224,6 +249,30 @@ export default function ParcelMap(props: MapProps) {
             );
           })}
         </Pane>
+        {route && route.stops.length > 0 && (
+          <Pane name="route" style={{ zIndex: 460 }}>
+            <Polyline
+              positions={[[route.start.lat, route.start.lng], ...route.stops.map((s) => [s.lat, s.lng] as [number, number])]}
+              pathOptions={{ color: "#1d4ed8", weight: 4, opacity: 0.8, dashArray: "10 8" }}
+            />
+            <Marker position={[route.start.lat, route.start.lng]} icon={routeIcon("▶", "#0f172a")} pane="route">
+              <Tooltip>Старт: {route.startLabel}</Tooltip>
+            </Marker>
+            {route.stops.map((s) => (
+              <Marker
+                key={`${s.kind}-${s.id}`}
+                position={[s.lat, s.lng]}
+                icon={routeIcon(String(s.n), s.priority >= 3 ? "#dc2626" : "#1d4ed8")}
+                pane="route"
+                eventHandlers={{ click: () => (s.kind === "signal" ? onSelectSignal(s.id) : onSelectParcel(s.id)) }}
+              >
+                <Tooltip>
+                  {s.n}. {s.title} · приоритет {s.priority}
+                </Tooltip>
+              </Marker>
+            ))}
+          </Pane>
+        )}
       </MapContainer>
       <Legend />
       <BasemapSwitch value={basemap} loading={satLoading} onChange={chooseBasemap} />
