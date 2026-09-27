@@ -19,3 +19,23 @@ body {
 .leaflet-container {
   font-family: inherit;
 }
+
+/* Пульсация новых сигналов на карте (SVG circleMarker) */
+@keyframes signal-pulse {
+  0% {
+    stroke-width: 2;
+    stroke-opacity: 0.9;
+  }
+  70% {
+    stroke-width: 22;
+    stroke-opacity: 0;
+  }
+  100% {
+    stroke-width: 2;
+    stroke-opacity: 0;
+  }
+}
+
+.signal-new {
+  animation: signal-pulse 1.6s ease-out infinite;
+}

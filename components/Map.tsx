@@ -4,17 +4,27 @@ import "leaflet/dist/leaflet.css";
 import "leaflet-defaulticon-compatibility/dist/leaflet-defaulticon-compatibility.css";
 import "leaflet-defaulticon-compatibility";
 import { useEffect, useState } from "react";
-import { MapContainer, Polygon, TileLayer, Tooltip, useMap } from "react-leaflet";
+import { CircleMarker, MapContainer, Pane, Polygon, TileLayer, Tooltip, useMap } from "react-leaflet";
 import type { PathOptions } from "leaflet";
-import { parcelsBounds, polygonToLeaflet } from "@/lib/geo";
-import { PARCEL_STATUS_STYLE } from "@/lib/status";
-import type { Parcel } from "@/lib/types";
+import { parcelsBounds, polygonToLeaflet, signalToLeaflet, type LatLngTuple } from "@/lib/geo";
+import { PARCEL_STATUS_STYLE, SIGNAL_STATUS_STYLE } from "@/lib/status";
+import type { Parcel, PublicSignal } from "@/lib/types";
 import Legend from "./Legend";
+
+export interface MapFocus {
+  center: LatLngTuple;
+  zoom: number;
+  key: number; // меняется при каждом новом запросе flyTo
+}
 
 export interface MapProps {
   parcels: Parcel[];
+  signals: PublicSignal[];
   selectedParcelId: string | null;
+  selectedSignalId: string | null;
+  focus: MapFocus | null;
   onSelectParcel: (id: string) => void;
+  onSelectSignal: (id: string) => void;
 }
 
 function FitBoundsOnce({ parcels }: { parcels: Parcel[] }) {
@@ -29,6 +39,14 @@ function FitBoundsOnce({ parcels }: { parcels: Parcel[] }) {
   return null;
 }
 
+function FlyTo({ focus }: { focus: MapFocus | null }) {
+  const map = useMap();
+  useEffect(() => {
+    if (focus) map.flyTo(focus.center, focus.zoom, { duration: 0.8 });
+  }, [focus, map]);
+  return null;
+}
+
 function parcelStyle(p: Parcel, hovered: boolean, selected: boolean): PathOptions {
   const st = PARCEL_STATUS_STYLE[p.status];
   return {
@@ -40,18 +58,20 @@ function parcelStyle(p: Parcel, hovered: boolean, selected: boolean): PathOption
   };
 }
 
-export default function ParcelMap({ parcels, selectedParcelId, onSelectParcel }: MapProps) {
+export default function ParcelMap(props: MapProps) {
+  const { parcels, signals, selectedParcelId, selectedSignalId, focus, onSelectParcel, onSelectSignal } = props;
   const [hovered, setHovered] = useState<string | null>(null);
 
   return (
     <div className="relative h-full w-full">
-      <MapContainer center={[42.9, 71.36667]} zoom={13} className="h-full w-full" preferCanvas={false}>
+      <MapContainer center={[42.9, 71.36667]} zoom={13} className="h-full w-full">
         <TileLayer
           attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
           url="https://tile.openstreetmap.org/{z}/{x}/{y}.png"
           maxZoom={19}
         />
         <FitBoundsOnce parcels={parcels} />
+        <FlyTo focus={focus} />
         {parcels.map((p) => (
           <Polygon
             key={p.id}
@@ -68,6 +88,33 @@ export default function ParcelMap({ parcels, selectedParcelId, onSelectParcel }:
             </Tooltip>
           </Polygon>
         ))}
+        {/* Слой сигналов поверх полигонов (overlayPane = 400) */}
+        <Pane name="signals" style={{ zIndex: 450 }}>
+          {signals.map((s) => {
+            const st = SIGNAL_STATUS_STYLE[s.status];
+            const selected = s.id === selectedSignalId;
+            return (
+              <CircleMarker
+                key={`${s.id}-${s.status}`}
+                center={signalToLeaflet(s)}
+                radius={9}
+                // className применяется только при создании слоя (setStyle его не меняет) — поэтому key зависит от статуса
+                className={s.status === "new" ? "signal-new" : undefined}
+                pathOptions={{
+                  color: selected ? "#1e3a8a" : st.color,
+                  weight: selected ? 4 : 2,
+                  fillColor: st.color,
+                  fillOpacity: 0.9,
+                }}
+                eventHandlers={{ click: () => onSelectSignal(s.id) }}
+              >
+                <Tooltip>
+                  {s.id} · {st.label}
+                </Tooltip>
+              </CircleMarker>
+            );
+          })}
+        </Pane>
       </MapContainer>
       <Legend />
     </div>

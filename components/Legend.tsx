@@ -1,4 +1,5 @@
-import { PARCEL_STATUSES, PARCEL_STATUS_STYLE } from "@/lib/status";
+import { PARCEL_STATUSES, PARCEL_STATUS_STYLE, SIGNAL_STATUS_STYLE } from "@/lib/status";
+import type { SignalStatus } from "@/lib/types";
 
 export default function Legend() {
   return (
@@ -18,12 +19,19 @@ export default function Legend() {
                   outlineOffset: st.dashArray ? 1 : undefined,
                 }}
               />
-              <span className="text-slate-700">
-                {st.label}
-              </span>
+              <span className="text-slate-700">{st.label}</span>
             </li>
           );
         })}
+      </ul>
+      <div className="mb-1.5 mt-3 font-semibold text-slate-700">Сигналы жителей</div>
+      <ul className="space-y-1">
+        {(Object.keys(SIGNAL_STATUS_STYLE) as SignalStatus[]).map((s) => (
+          <li key={s} className="flex items-center gap-2">
+            <span className="inline-block h-3 w-3 rounded-full" style={{ background: SIGNAL_STATUS_STYLE[s].color }} />
+            <span className="text-slate-700">{SIGNAL_STATUS_STYLE[s].label}</span>
+          </li>
+        ))}
       </ul>
     </div>
   );

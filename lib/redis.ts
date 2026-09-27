@@ -37,7 +37,7 @@ export async function getAllParcels(): Promise<Parcel[]> {
 
 export async function getAllSignals(): Promise<Signal[]> {
   const list = await hvalues<Signal>(KEYS.signals);
-  return list.sort((a, b) => b.createdAt.localeCompare(a.createdAt));
+  return list.sort((a, b) => Date.parse(b.createdAt) - Date.parse(a.createdAt));
 }
 
 export async function getParcel(id: string): Promise<Parcel | null> {

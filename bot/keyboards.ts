@@ -1,6 +1,6 @@
 import { InlineKeyboard, Keyboard } from "grammy";
 import { KNOWLEDGE, KNOWLEDGE_STUB_LINK, isFilled, type KnowledgeEntry } from "@/content/knowledge";
-import { BTN, T } from "./texts";
+import { BTN, REPORT_HINTS, T } from "./texts";
 
 // callback_data
 export const CB = {
@@ -9,6 +9,9 @@ export const CB = {
   menu: "menu",
   kbList: "kb:list",
   kbPrefix: "kb:",
+  repHintPrefix: "rep:h:",
+  repSend: "rep:send",
+  repCancel: "rep:cancel",
 } as const;
 
 export function mainMenu() {
@@ -32,4 +35,20 @@ export function knowledgeEntryKeyboard(e: KnowledgeEntry) {
   const links = isFilled(e) ? e.links : [KNOWLEDGE_STUB_LINK];
   for (const l of links) kb.url(l.title, l.url).row();
   return kb.text(T.kbBack, CB.kbList);
+}
+
+export function locationKeyboard() {
+  return new Keyboard().requestLocation(BTN.sendLocation).row().text(BTN.cancel).resized();
+}
+
+export function cancelKeyboard() {
+  return new Keyboard().text(BTN.cancel).resized();
+}
+
+export function hintsKeyboard() {
+  return InlineKeyboard.from(REPORT_HINTS.map((h, i) => [InlineKeyboard.text(h, CB.repHintPrefix + i)]));
+}
+
+export function confirmKeyboard() {
+  return new InlineKeyboard().text(T.repSend, CB.repSend).text(T.repCancelBtn, CB.repCancel);
 }
