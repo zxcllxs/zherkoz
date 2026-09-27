@@ -5,6 +5,7 @@ import { getLang } from "@/bot/state";
 import { TEXTS, type Lang } from "@/bot/texts";
 import { formatDate } from "./format";
 import { getRedis, KEYS } from "./redis";
+import { signalRecipients } from "./signal-utils";
 import type { Application, Parcel, Signal } from "./types";
 
 export function signalStatusMessage(signal: Signal, parcel: Parcel | null, lang: Lang = "ru"): string | null {
@@ -26,15 +27,18 @@ export function signalStatusMessage(signal: Signal, parcel: Parcel | null, lang:
   }
 }
 
+/** Уведомление всем жителям сигнала (автор + присоединившиеся), каждому на его языке. seed-сигналы (chatId 0) пропускаются. */
 export async function notifySignalStatus(signal: Signal, parcel: Parcel | null): Promise<void> {
-  if (!signal.chatId) return; // seed-сигналы (chatId 0) — пропускаем
-  try {
-    const lang = (await getLang(signal.chatId)) ?? "ru";
-    const text = signalStatusMessage(signal, parcel, lang);
-    if (!text) return;
-    await getBot().api.sendMessage(signal.chatId, text);
-  } catch (e) {
-    console.error(`[notify] ${signal.id}:`, e instanceof Error ? e.message : e);
+  const results = await Promise.allSettled(
+    signalRecipients(signal).map(async (chatId) => {
+      const text = signalStatusMessage(signal, parcel, (await getLang(chatId)) ?? "ru");
+      if (text) await getBot().api.sendMessage(chatId, text);
+    }),
+  );
+  for (const r of results) {
+    if (r.status === "rejected") {
+      console.error(`[notify] ${signal.id}:`, r.reason instanceof Error ? r.reason.message : r.reason);
+    }
   }
 }
 

@@ -1,6 +1,7 @@
 // План выезда инспектора: отбор точек, приоритет, порядок обхода, ссылки Google Maps.
 import { parcelCenter, haversineKm } from "./geo";
 import { isOverdue } from "./status";
+import { signalReports } from "./signal-utils";
 import type { Parcel, PublicSignal } from "./types";
 
 export const TARAZ_CENTER = { lat: 42.9, lng: 71.36667 };
@@ -64,7 +65,7 @@ export function stopPriority(
     reasons.push("новый сигнал");
   }
   if (signal) {
-    const reports = signal.reports ?? 1;
+    const reports = signalReports(signal);
     priority += reports;
     reasons.push(reports > 1 ? `сообщили ${reports} жителей` : "1 сообщение");
   }

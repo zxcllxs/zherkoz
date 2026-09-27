@@ -4,7 +4,7 @@ import { getParcel, getSignal, saveParcel, saveSignal } from "@/lib/redis";
 import { jsonError, serverError } from "@/lib/http";
 import { canSignalTransition, SIGNAL_STATUS_STYLE } from "@/lib/status";
 import { addResidentPhoto, applyTransition } from "@/lib/parcels";
-import { toPublicSignal } from "@/lib/signals";
+import { signalPhotoIds, toPublicSignal } from "@/lib/signals";
 import { notifySignalStatus } from "@/lib/notify";
 import type { Parcel, Signal, SignalStatus } from "@/lib/types";
 
@@ -89,8 +89,8 @@ export async function PATCH(req: Request, ctx: RouteContext<"/api/signals/[id]">
       }
     }
     // Нарушение подтверждено — фото жителя становится доказательством в карточке участка.
-    if (parcel && body.to === "confirmed" && signal.photoFileId) {
-      parcel = addResidentPhoto(parcel, signal.id, signal.photoFileId);
+    if (parcel && body.to === "confirmed") {
+      for (const fileId of signalPhotoIds(signal)) parcel = addResidentPhoto(parcel, signal.id, fileId);
     }
     if (parcel) await saveParcel(parcel);
 

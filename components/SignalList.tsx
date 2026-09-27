@@ -2,7 +2,7 @@
 
 import { formatDateTime } from "@/lib/format";
 import type { PublicSignal } from "@/lib/types";
-import { SignalStatusBadge } from "./StatusBadge";
+import { ReportsBadge, SignalStatusBadge } from "./StatusBadge";
 
 export default function SignalList({
   signals,
@@ -24,7 +24,10 @@ export default function SignalList({
               <SignalStatusBadge status={s.status} />
             </div>
             <div className="line-clamp-2 text-sm text-slate-700">{s.text}</div>
-            <div className="mt-1 text-xs text-slate-500">{formatDateTime(s.createdAt)}</div>
+            <div className="mt-1 flex flex-wrap items-center gap-2 text-xs text-slate-500">
+              {formatDateTime(s.createdAt)}
+              <ReportsBadge reports={s.reports} />
+            </div>
           </button>
         </li>
       ))}

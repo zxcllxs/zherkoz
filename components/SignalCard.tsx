@@ -5,7 +5,8 @@ import { patchSignal, type SignalPatch } from "@/lib/api";
 import { formatDateTime } from "@/lib/format";
 import { PARCEL_STATUS_STYLE, SIGNAL_STATUS_STYLE } from "@/lib/status";
 import type { Parcel, ParcelStatus, PublicSignal } from "@/lib/types";
-import { SignalStatusBadge } from "./StatusBadge";
+import { ReportsBadge, SignalStatusBadge } from "./StatusBadge";
+import { signalPhotoIds } from "@/lib/signal-utils";
 import ViolationModal from "./ViolationModal";
 import RejectModal from "./RejectModal";
 import Lightbox from "./Lightbox";
@@ -30,10 +31,11 @@ export default function SignalCard({
   const toast = useToast();
   const [busy, setBusy] = useState(false);
   const [modal, setModal] = useState<"violation" | "reject" | null>(null);
-  const [lightbox, setLightbox] = useState(false);
-  const [imgError, setImgError] = useState(false);
+  const [lightbox, setLightbox] = useState<string | null>(null);
+  const [failed, setFailed] = useState<Set<string>>(new Set());
 
-  const photoUrl = signal.photoFileId ? `/api/tg-photo/${encodeURIComponent(signal.photoFileId)}` : null;
+  // Все фото сигнала (от автора и присоединившихся жителей); у старых сигналов — одно photoFileId.
+  const photoUrls = signalPhotoIds(signal).map((id) => `/api/tg-photo/${encodeURIComponent(id)}`);
 
   const send = async (body: SignalPatch) => {
     const res = await patchSignal(signal.id, body);
@@ -70,25 +72,39 @@ export default function SignalCard({
         <div className="font-mono text-lg font-semibold text-slate-900">{signal.id}</div>
         <div className="mt-2 flex flex-wrap items-center gap-2">
           <SignalStatusBadge status={signal.status} />
+          <ReportsBadge reports={signal.reports} />
           {signal.isDemoSeed && (
             <span className="rounded-full bg-slate-100 px-2 py-0.5 text-xs text-slate-500">тестовые данные</span>
           )}
         </div>
       </div>
 
-      {photoUrl && !imgError ? (
-        <button onClick={() => setLightbox(true)} className="overflow-hidden rounded-lg bg-slate-100">
-          {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img
-            src={photoUrl}
-            alt={`Фото к сигналу ${signal.id}`}
-            className="max-h-64 w-full object-cover"
-            onError={() => setImgError(true)}
-          />
-        </button>
-      ) : (
+      {photoUrls.length === 0 ? (
         <div className="flex h-32 items-center justify-center rounded-lg border border-dashed border-slate-300 bg-slate-50 text-sm text-slate-500">
-          {photoUrl ? "фото не удалось загрузить" : "фото не приложено"}
+          фото не приложено
+        </div>
+      ) : (
+        <div className={photoUrls.length > 1 ? "grid grid-cols-2 gap-2" : ""}>
+          {photoUrls.map((url, i) =>
+            failed.has(url) ? (
+              <div
+                key={url}
+                className="flex h-32 items-center justify-center rounded-lg border border-dashed border-slate-300 bg-slate-50 text-sm text-slate-500"
+              >
+                фото не удалось загрузить
+              </div>
+            ) : (
+              <button key={url} onClick={() => setLightbox(url)} className="overflow-hidden rounded-lg bg-slate-100">
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                <img
+                  src={url}
+                  alt={`Фото ${i + 1} к сигналу ${signal.id}`}
+                  className={`w-full object-cover ${photoUrls.length > 1 ? "h-32" : "max-h-64"}`}
+                  onError={() => setFailed((f) => new Set(f).add(url))}
+                />
+              </button>
+            ),
+          )}
         </div>
       )}
 
@@ -164,7 +180,7 @@ export default function SignalCard({
           }}
         />
       )}
-      {lightbox && photoUrl && <Lightbox src={photoUrl} onClose={() => setLightbox(false)} />}
+      {lightbox && <Lightbox src={lightbox} onClose={() => setLightbox(null)} />}
     </div>
   );
 }

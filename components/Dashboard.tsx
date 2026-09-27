@@ -20,7 +20,7 @@ import AppList from "./AppList";
 import AppCard from "./AppCard";
 import GeoJsonTools from "./GeoJsonTools";
 import RoutePlanPanel from "./RoutePlanPanel";
-import { buildRoutePlan, TARAZ_CENTER, type LatLng, type PlannedStop, type RoutePlan } from "@/lib/route-plan";
+import { buildRoutePlan, signalPriority, TARAZ_CENTER, type LatLng, type PlannedStop, type RoutePlan } from "@/lib/route-plan";
 
 const ParcelMap = dynamic(() => import("./Map"), {
   ssr: false,
@@ -76,10 +76,14 @@ function DashboardInner() {
 
   const overdueOf = useCallback((p: Parcel) => isOverdue(p, now), [now]);
   const filteredParcels = useMemo(() => applyFilter(parcels, filter, overdueOf), [parcels, filter, overdueOf]);
-  const visibleSignals = useMemo(
-    () => (newSignalsOnly ? signals.filter((s) => s.status === "new") : signals),
-    [signals, newSignalsOnly],
-  );
+  // Список сигналов — по приоритету плана выезда (выше — раньше), при равенстве — новее выше.
+  const visibleSignals = useMemo(() => {
+    const list = newSignalsOnly ? signals.filter((s) => s.status === "new") : signals;
+    const prio = new Map(list.map((s) => [s.id, signalPriority(s, parcels, now)]));
+    return [...list].sort(
+      (a, b) => prio.get(b.id)! - prio.get(a.id)! || Date.parse(b.createdAt) - Date.parse(a.createdAt),
+    );
+  }, [signals, parcels, now, newSignalsOnly]);
 
   const counts = useMemo(
     () => ({

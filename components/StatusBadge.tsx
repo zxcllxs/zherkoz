@@ -24,3 +24,14 @@ export function SignalStatusBadge({ status }: { status: SignalStatus }) {
     </span>
   );
 }
+
+/** «сообщили N жителей» — только если N > 1. */
+export function ReportsBadge({ reports }: { reports?: number }) {
+  const n = reports ?? 1;
+  if (n <= 1) return null;
+  return (
+    <span className="inline-flex items-center rounded-full bg-violet-100 px-2 py-0.5 text-xs font-medium text-violet-800 ring-1 ring-violet-200">
+      сообщили {n} жителей
+    </span>
+  );
+}

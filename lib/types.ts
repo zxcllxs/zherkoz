@@ -61,6 +61,10 @@ export interface Signal {
   isDemoSeed?: boolean;
   /** Сколько жителей сообщили об этом месте (по умолчанию 1). */
   reports?: number;
+  /** chatId жителей, присоединившихся к сигналу (кроме автора). Не отдаётся в панель. */
+  subscribers?: number[];
+  /** Все фото сигнала (по умолчанию — [photoFileId]). */
+  photoFileIds?: string[];
 }
 
 export interface Application {
@@ -72,7 +76,7 @@ export interface Application {
 }
 
 /** Signal без персональных данных жителя — то, что уходит в панель. */
-export type PublicSignal = Omit<Signal, "chatId">;
+export type PublicSignal = Omit<Signal, "chatId" | "subscribers">;
 
 export interface StateResponse {
   parcels: Parcel[];

@@ -231,7 +231,7 @@ export default function ParcelMap(props: MapProps) {
               <CircleMarker
                 key={`${s.id}-${s.status}`}
                 center={signalToLeaflet(s)}
-                radius={9}
+                radius={(s.reports ?? 1) > 1 ? 13 : 9}
                 // className применяется только при создании слоя (setStyle его не меняет) — поэтому key зависит от статуса
                 className={s.status === "new" ? "signal-new" : undefined}
                 pathOptions={{
@@ -244,6 +244,7 @@ export default function ParcelMap(props: MapProps) {
               >
                 <Tooltip>
                   {s.id} · {st.label}
+                  {(s.reports ?? 1) > 1 && ` · сообщили ${s.reports} жителей`}
                 </Tooltip>
               </CircleMarker>
             );

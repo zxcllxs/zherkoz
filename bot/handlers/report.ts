@@ -73,14 +73,15 @@ export async function onSend(ctx: BotContext, state: BotState | null) {
   // Сначала сбрасываем состояние — повторное нажатие «Отправить» не создаст дубль.
   await clearState(ctx.chat!.id);
   await ctx.editMessageReplyMarkup().catch(() => {});
-  const signal = await createSignalFromBot({
+  const { signal, merged } = await createSignalFromBot({
     chatId: ctx.chat!.id,
     lat: state.lat,
     lng: state.lng,
     photoFileId: state.photoFileId,
     text: state.text,
   });
-  await ctx.reply(tx(ctx).repAccepted(signal.id), { reply_markup: mainMenu(tx(ctx)) });
+  const t = tx(ctx);
+  await ctx.reply(merged ? t.repDuplicate(signal.id) : t.repAccepted(signal.id), { reply_markup: mainMenu(t) });
 }
 
 /** Неверный ввод на шаге: вежливая подсказка, шаг не сбрасываем. */

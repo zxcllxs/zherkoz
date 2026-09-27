@@ -1,12 +1,15 @@
-import { getAllParcels, getRedis, KEYS, saveParcel, saveSignal } from "./redis";
+import { getAllParcels, getAllSignals, getRedis, KEYS, saveParcel, saveSignal } from "./redis";
 import { findParcelAt } from "./geo";
+import { findDuplicate, signalPhotoIds, signalRecipients, signalReports } from "./signal-utils";
 import { applyTransition } from "./parcels";
 import type { PublicSignal, Signal } from "./types";
 
-/** Убирает chatId жителя перед отдачей в панель. */
+export { signalPhotoIds, signalRecipients, signalReports } from "./signal-utils";
+
+/** Убирает chatId жителей (автора и присоединившихся) перед отдачей в панель. */
 export function toPublicSignal(s: Signal): PublicSignal {
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
-  const { chatId, ...rest } = s;
+  const { chatId, subscribers, ...rest } = s;
   return rest;
 }
 
@@ -17,6 +20,7 @@ export function formatSignalId(n: number): string {
 /**
  * Сохраняет сигнал жителя (status: new), привязывает к участку по точке.
  * Участок в статусе clean/resolved переводится в check.
+ * Если в радиусе 50 м уже есть активный сигнал — новый не создаётся: житель присоединяется к существующему.
  */
 export async function createSignalFromBot(input: {
   chatId: number;
@@ -24,7 +28,22 @@ export async function createSignalFromBot(input: {
   lng: number;
   text: string;
   photoFileId: string;
-}): Promise<Signal> {
+}): Promise<{ signal: Signal; merged: boolean }> {
+  const dup = findDuplicate(await getAllSignals(), input.lat, input.lng);
+  if (dup) {
+    const alreadyIn = signalRecipients(dup).includes(input.chatId);
+    const photos = signalPhotoIds(dup);
+    const merged: Signal = {
+      ...dup,
+      // Один и тот же житель не увеличивает счётчик повторно.
+      reports: signalReports(dup) + (alreadyIn ? 0 : 1),
+      subscribers: alreadyIn ? (dup.subscribers ?? []) : [...(dup.subscribers ?? []), input.chatId],
+      photoFileIds: photos.includes(input.photoFileId) ? photos : [...photos, input.photoFileId],
+    };
+    await saveSignal(merged);
+    return { signal: merged, merged: true };
+  }
+
   const [seq, parcels] = await Promise.all([getRedis().incr(KEYS.signalSeq), getAllParcels()]);
   const id = formatSignalId(seq);
   const parcel = findParcelAt(input.lat, input.lng, parcels);
@@ -36,6 +55,9 @@ export async function createSignalFromBot(input: {
     lng: input.lng,
     text: input.text,
     photoFileId: input.photoFileId,
+    photoFileIds: [input.photoFileId],
+    reports: 1,
+    subscribers: [],
     status: "new",
     createdAt: new Date().toISOString(),
     ...(parcel ? { parcelId: parcel.id } : {}),
@@ -51,5 +73,5 @@ export async function createSignalFromBot(input: {
       await saveParcel({ ...parcel, history: [...parcel.history, { at: signal.createdAt, action }] });
     }
   }
-  return signal;
+  return { signal, merged: false };
 }
